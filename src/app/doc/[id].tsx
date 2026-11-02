@@ -9,9 +9,9 @@ import { Badge, Button, EmptyState, Muted, Row, Slider } from '../../components/
 import { useI18n } from '../../lib/i18n';
 import { useAppFonts } from '../../lib/fonts';
 import { CATEGORY_LABELS, findDoc, licenseBadgeLabel, licenseStatusCodeOf, normalize, paginate } from '../../lib/library';
-import { appStore, commitSessionProgress, setProgress, toggleBookmark } from '../../lib/store';
-import { readingPageToKeep } from '../../lib/stateMerge';
-import { firstString, safePageIndex, sanitizeSearchQuery } from '../../lib/textGuard';
+import { appStore, setProgress, toggleBookmark } from '../../lib/store';
+import { useReaderPage } from './useReaderPage';
+import { firstString, sanitizeSearchQuery } from '../../lib/textGuard';
 import { colors, readingColumnWidth, readingPadding, readerThemes, snapFontScale, snapLineHeight, ReaderTheme } from '../../theme';
 
 const THEME_ORDER: ReaderTheme[] = ['light', 'sepia', 'dark'];
@@ -22,19 +22,21 @@ export default function Reader() {
   const s = appStore.useStore();
   const doc = useMemo(() => findDoc(firstString(params.id) || undefined, s.userDocs), [params.id, s.userDocs]);
   const pages = useMemo(() => (doc ? paginate(doc) : []), [doc]);
-  const initial = (() => {
-    const fromParam = safePageIndex(params.page);
-    if (fromParam !== null) return fromParam;
-    return doc ? (s.progress[doc.id]?.page ?? 0) : 0;
-  })();
-  const [page, setPage] = useState(Math.max(0, Math.min(initial, Math.max(0, pages.length - 1))));
   const [dragPage, setDragPage] = useState<number | null>(null);
   const [panel, setPanel] = useState<'none' | 'info' | 'bookmarks' | 'find' | 'display'>('none');
   const [find, setFind] = useState(sanitizeSearchQuery(params.q));
   const scrollRef = useRef<ScrollViewInstance>(null);
-  const userMoved = useRef(safePageIndex(params.page) !== null);
-  const committedDoc = useRef<string | null>(null);
   const storageReady = appStore.useStorageReady();
+  const { page, go } = useReaderPage({
+    docId: doc?.id,
+    pageParam: params.page,
+    savedPage: doc ? s.progress[doc.id]?.page : undefined,
+    pageCount: pages.length,
+    storageReady,
+    onCommit: (next) => {
+      if (doc) setProgress(doc.id, next, pages.length);
+    },
+  });
   const fonts = useAppFonts();
   const theme = readerThemes[s.readerTheme];
   const rtl = doc?.lang === 'ar';
@@ -53,33 +55,15 @@ export default function Reader() {
   }, [page, doc?.id]);
 
   useEffect(() => {
-    if (!doc || !storageReady) return;
-    const savedPage = s.progress[doc.id]?.page;
-    if (committedDoc.current !== doc.id) {
-      const next = readingPageToKeep(savedPage, page, userMoved.current);
-      const clamped = Math.max(0, Math.min(next, Math.max(0, pages.length - 1)));
-      if (clamped !== page) {
-        setPage(clamped);
-        return;
-      }
-      committedDoc.current = doc.id;
-      commitSessionProgress(appStore, doc.id, page, pages.length, true);
-      return;
-    }
-    setProgress(doc.id, page, pages.length);
-  }, [doc, page, pages.length, storageReady, s.progress]);
-
-  useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement | null)?.tagName === 'INPUT') return;
-      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') userMoved.current = true;
-      if (e.key === 'ArrowRight') setPage((p) => (rtl ? Math.max(0, p - 1) : Math.min(pages.length - 1, p + 1)));
-      if (e.key === 'ArrowLeft') setPage((p) => (rtl ? Math.min(pages.length - 1, p + 1) : Math.max(0, p - 1)));
+      if (e.key === 'ArrowRight') go(rtl ? page - 1 : page + 1);
+      if (e.key === 'ArrowLeft') go(rtl ? page + 1 : page - 1);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [pages.length, rtl]);
+  }, [pages.length, rtl, page, go]);
 
   const findQuery = sanitizeSearchQuery(find);
   const findHits = useMemo(() => {
@@ -105,10 +89,6 @@ export default function Reader() {
   const isMarked = marks.includes(page);
   const shown = dragPage ?? page;
   const pct = Math.round(((page + 1) / pages.length) * 100);
-  const go = (p: number) => {
-    userMoved.current = true;
-    setPage(Math.max(0, Math.min(pages.length - 1, p)));
-  };
   const iconBtn = (name: keyof typeof Ionicons.glyphMap, label: string, onPress: () => void, active?: boolean) => (
     <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={[styles.iconBtn, active && { backgroundColor: theme.accent + '33' }]} hitSlop={4}>
       <Ionicons name={name} size={20} color={active ? theme.accent : theme.text} />

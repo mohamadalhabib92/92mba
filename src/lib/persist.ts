@@ -10,8 +10,8 @@ export type KeyValueStorage = {
   removeItem(key: string): Promise<void>;
 };
 
-export type StorageWarning = 'unreadable' | 'copy-failed' | null;
-export type ResetResult = 'idle' | 'pending' | 'wiped' | 'refused';
+export type StorageWarning = 'unreadable' | 'copy-failed' | 'delete-failed' | null;
+export type ResetResult = 'idle' | 'pending' | 'wiped' | 'refused' | 'delete-failed';
 
 /** Copie brute, jamais la clé d'origine. `92mba:v1` reste la clé de l'app. */
 export function unreadableStorageKey(key: string): string {
@@ -47,6 +47,8 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
   let pendingWipe = false;
   let warning: StorageWarning = null;
   let copyVerified = false;
+  let preservedKey: string | null = null;
+  let preservedRaw: string | null = null;
   let resetResult: ResetResult = 'idle';
   let loadGen = 0;
   const touched = new Set<string>();
@@ -86,6 +88,8 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
       const back = await storage.getItem(dest);
       if (back !== raw) throw new Error('copy mismatch');
       if (gen !== loadGen) return false;
+      preservedKey = dest;
+      preservedRaw = raw;
       warning = 'unreadable';
       copyVerified = true;
       hydrated = true;
@@ -100,11 +104,26 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
 
   const wipeOriginal = async () => {
     pendingWipe = true;
+    if (preservedKey !== null && preservedRaw !== null) {
+      let again: string | null = null;
+      try {
+        again = await storage.getItem(preservedKey);
+      } catch {
+        again = null;
+      }
+      if (again !== preservedRaw) {
+        pendingWipe = false;
+        markCopyFailed();
+        return;
+      }
+    }
     try {
       await storage.removeItem(key);
     } catch {
       pendingWipe = false;
-      resetResult = 'refused';
+      warning = 'delete-failed';
+      resetResult = 'delete-failed';
+      hydrated = true;
       emit();
       return;
     }
@@ -219,9 +238,11 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
         emit();
         return 'refused';
       }
-      if (warning === 'unreadable' && copyVerified) {
+      if (copyVerified && (warning === 'unreadable' || warning === 'delete-failed')) {
+        resetResult = 'pending';
+        emit();
         void wipeOriginal();
-        return 'wiped';
+        return 'pending';
       }
       if (!storageReady) {
         pendingWipe = true;

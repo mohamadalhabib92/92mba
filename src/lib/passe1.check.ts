@@ -1,6 +1,9 @@
 import { highlightColors, badgeTones, colors, contrastRatio, readerThemes, readingColumnWidth, snapFontScale, snapLineHeight, snapMargin } from '../theme';
 import { classifyOptionalFailure, FEATURE_ACCOUNT, FEATURE_AI, sentryEnabled } from './features';
 import { licenseAudit } from './library';
+import React, { act } from 'react';
+import TestRenderer from 'react-test-renderer';
+import { useReaderPage } from '../app/doc/useReaderPage';
 import { createPersistedStore, unreadableStorageKey, type KeyValueStorage } from './persist';
 import { commitSessionProgress, recordProgress } from './store';
 import { defaultAppState, mergeLate, mergeStored, readingPageToKeep } from './stateMerge';
@@ -129,6 +132,9 @@ void (async () => {
   await scenarioC_copyFailureRefusesReset();
   await scenarioC_copyMismatchRefusesReset();
   await scenarioC_datedSuffixKeepsPreviousCopy();
+  await scenarioLinkOpensRequestedPage();
+  await scenarioDeleteFailureIsNotUnverifiedCopy();
+  await scenarioRereadCopyBeforeDelete();
   console.log('passe1 checks ok');
 })();
 
@@ -596,4 +602,152 @@ async function scenarioC_datedSuffixKeepsPreviousCopy() {
   assert(disk.get(dated) === raw, `suffixe daté absent (${[...disk.keys()].join(', ')})`);
   assert(disk.get('92mba:v1') === raw, 'original modifié en ajoutant un suffixe');
   assert(store.getWarning() === 'unreadable' && store.isCopyVerified(), 'copie datée non vérifiée');
+}
+
+async function scenarioLinkOpensRequestedPage() {
+  const linkShown = { page: -1 };
+  const commits: number[] = [];
+  function Probe(props: {
+    ready: boolean;
+    saved?: number;
+    pageParam?: unknown;
+    sink: number[];
+    display: { page: number };
+    onGo?: (go: (page: number) => void) => void;
+  }) {
+    const view = useReaderPage({
+      docId: TAYLOR,
+      pageParam: props.pageParam,
+      savedPage: props.saved,
+      pageCount: 300,
+      storageReady: props.ready,
+      onCommit: (next) => props.sink.push(next),
+    });
+    props.display.page = view.page;
+    props.onGo?.(view.go);
+    return null;
+  }
+  await act(async () => {
+    TestRenderer.create(React.createElement(Probe, { ready: true, saved: 120, pageParam: '5', sink: commits, display: linkShown }));
+  });
+  assert(linkShown.page === 5, `lien vers la page 5 alors que la page enregistrée est 120 : affiché ${linkShown.page}`);
+  assert(commits[commits.length - 1] === 5, `lien enregistré ${commits.join(',')}`);
+  assert(!commits.includes(120), `le max a remplacé le lien : ${commits.join(',')}`);
+
+  const nextShown = { page: -1 };
+  const early: number[] = [];
+  let go = (_page: number) => {};
+  const holder: { tree?: TestRenderer.ReactTestRenderer } = {};
+  await act(async () => {
+    holder.tree = TestRenderer.create(
+      React.createElement(Probe, {
+        ready: false,
+        pageParam: undefined,
+        sink: early,
+        display: nextShown,
+        onGo: (next) => {
+          go = next;
+        },
+      }),
+    );
+  });
+  await act(async () => {
+    go(1);
+  });
+  await act(async () => {
+    holder.tree!.update(
+      React.createElement(Probe, {
+        ready: true,
+        saved: 120,
+        pageParam: undefined,
+        sink: early,
+        display: nextShown,
+        onGo: (next) => {
+          go = next;
+        },
+      }),
+    );
+  });
+  assert(nextShown.page === 120, `suivant avant la lecture : affiché ${nextShown.page}`);
+  assert(!early.includes(1), `page 1 écrite avant le max : ${early.join(',')}`);
+  assert(early[early.length - 1] === 120, `page conservée ${early.join(',')}`);
+}
+
+async function scenarioDeleteFailureIsNotUnverifiedCopy() {
+  const raw = '{"lang":"ar"';
+  const disk = new Map<string, string>([['92mba:v1', raw]]);
+  const copy = unreadableStorageKey('92mba:v1');
+  const ops: string[] = [];
+  const storage: KeyValueStorage = {
+    getItem: async (key) => {
+      ops.push(`get:${key}`);
+      return disk.get(key) ?? null;
+    },
+    setItem: async (key, value) => {
+      ops.push(`set:${key}`);
+      disk.set(key, value);
+    },
+    removeItem: async (key) => {
+      ops.push(`rm:${key}`);
+      throw new Error('remove failed');
+    },
+  };
+  const store = createPersistedStore('92mba:v1', defaultAppState(), {
+    storage,
+    saveDelayMs: 0,
+    merge: mergeStored,
+    mergeLate,
+  });
+  store.continueOffline();
+  await wait(40);
+  assert(store.isCopyVerified() && store.getWarning() === 'unreadable', 'suppression : copie pas prête');
+  const mark = ops.length;
+  assert(store.reset() === 'pending', 'suppression : reset');
+  await wait(40);
+  assert(store.getWarning() === 'delete-failed', `message ${store.getWarning()}`);
+  assert(store.getResetResult() === 'delete-failed', `résultat ${store.getResetResult()}`);
+  assert(disk.get('92mba:v1') === raw, 'échec de suppression : original disparu');
+  const tail = ops.slice(mark);
+  const reread = tail.indexOf(`get:${copy}`);
+  const rmAt = tail.indexOf('rm:92mba:v1');
+  assert(reread >= 0 && rmAt > reread, `relecture avant suppression manquante : ${tail.join(' ')}`);
+}
+
+async function scenarioRereadCopyBeforeDelete() {
+  const raw = '{"lang":"ar"';
+  const disk = new Map<string, string>([['92mba:v1', raw]]);
+  const copy = unreadableStorageKey('92mba:v1');
+  let copyReads = 0;
+  const storage: KeyValueStorage = {
+    getItem: async (key) => {
+      if (key === copy) {
+        copyReads += 1;
+        if (copyReads === 1) return null;
+        if (copyReads === 2) return disk.get(key) ?? null;
+        return `${raw}#`;
+      }
+      return disk.get(key) ?? null;
+    },
+    setItem: async (key, value) => {
+      disk.set(key, value);
+    },
+    removeItem: async (key) => {
+      disk.delete(key);
+    },
+  };
+  const store = createPersistedStore('92mba:v1', defaultAppState(), {
+    storage,
+    saveDelayMs: 0,
+    merge: mergeStored,
+    mergeLate,
+  });
+  store.continueOffline();
+  await wait(40);
+  assert(store.getWarning() === 'unreadable' && store.isCopyVerified(), 'relecture : copie initiale');
+  store.reset();
+  await wait(40);
+  assert(disk.has('92mba:v1'), 'original effacé alors que la copie a changé');
+  assert(disk.get('92mba:v1') === raw, 'original altéré');
+  assert(store.getWarning() === 'copy-failed', `relecture ${store.getWarning()}`);
+  assert(store.getResetResult() === 'refused', `relecture résultat ${store.getResetResult()}`);
 }

@@ -123,6 +123,7 @@ const fr = {
   storageUnreadable:
     'Les données enregistrées sur cet appareil n’ont pas pu être lues. Une copie brute a été conservée : rien n’a été écrasé.',
   storageCopyFailed: 'Copie impossible, rien n’a été modifié',
+  resetDeleteFailed: 'La suppression a échoué. Les données d’origine sont toujours sur cet appareil.',
   resetRefused: 'Réinitialisation refusée : la copie de secours n’est pas vérifiée. Les données d’origine sont inchangées.',
   freshStart: 'Repartir de zéro',
   confirmFreshStart: 'Appuyez encore pour repartir de zéro',
@@ -247,6 +248,7 @@ const en: Dict = {
   errorText: '92\'MBA could not show this screen. The built-in documents are still on this device.',
   storageUnreadable: 'The saved data on this device could not be read. A raw copy was kept and nothing was overwritten.',
   storageCopyFailed: 'Copy impossible, nothing was changed',
+  resetDeleteFailed: 'Deletion failed. The original data is still on this device.',
   resetRefused: 'Reset refused: the backup copy is not verified. The original data is unchanged.',
   freshStart: 'Start over',
   confirmFreshStart: 'Tap again to start over',
@@ -370,6 +372,7 @@ const ar: Dict = {
   errorText: 'تعذّر على 92\'MBA عرض هذه الشاشة. المستندات المدمجة ما زالت على هذا الجهاز.',
   storageUnreadable: 'تعذّرت قراءة البيانات المحفوظة على هذا الجهاز. احتفظنا بنسخة خام ولم يُستبدل شيء.',
   storageCopyFailed: 'تعذّر النسخ، لم يُغيَّر شيء',
+  resetDeleteFailed: 'فشل الحذف. البيانات الأصلية ما زالت على هذا الجهاز.',
   resetRefused: 'رُفضت إعادة التعيين: النسخة الاحتياطية غير مؤكدة. البيانات الأصلية لم تتغير.',
   freshStart: 'البدء من جديد',
   confirmFreshStart: 'اضغط مرة أخرى للبدء من جديد',

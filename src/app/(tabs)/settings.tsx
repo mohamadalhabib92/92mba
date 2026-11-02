@@ -17,8 +17,9 @@ export default function Settings() {
   const copyVerified = appStore.useCopyVerified();
   const resetResult = appStore.useResetResult();
   const [confirm, setConfirm] = useState(false);
-  const resetBlocked = warning === 'copy-failed' || (warning === 'unreadable' && !copyVerified);
-  const canStartFresh = warning === 'unreadable' && copyVerified;
+  const resetBlocked = warning === 'copy-failed' || ((warning === 'unreadable' || warning === 'delete-failed') && !copyVerified);
+  const canStartFresh = copyVerified && (warning === 'unreadable' || warning === 'delete-failed');
+  const deleteFailed = warning === 'delete-failed' || resetResult === 'delete-failed';
   const themes: { k: ReaderTheme; l: string }[] = [
     { k: 'light', l: t('themeLight') },
     { k: 'sepia', l: t('themeSepia') },
@@ -68,6 +69,7 @@ export default function Settings() {
       <Card>
         <H3>{t('dataLocal')}</H3>
         <Body>{t('dataLocalText')}</Body>
+        {deleteFailed ? <Body>{t('resetDeleteFailed')}</Body> : null}
         {resetBlocked ? (
           <>
             <Body>{t('storageCopyFailed')}</Body>
@@ -98,7 +100,7 @@ export default function Settings() {
           />
         )}
         {resetResult === 'pending' ? <Muted>{t('resetPending')}</Muted> : null}
-        {resetResult === 'refused' && !resetBlocked ? <Body>{t('resetRefused')}</Body> : null}
+        {resetResult === 'refused' && !resetBlocked && !deleteFailed ? <Body>{t('resetRefused')}</Body> : null}
         {resetResult === 'wiped' ? <Muted>{t('resetDone')}</Muted> : null}
       </Card>
       <Muted center>92'MBA · v1.0.0</Muted>
