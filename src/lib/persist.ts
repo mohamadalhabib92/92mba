@@ -10,9 +10,16 @@ export type KeyValueStorage = {
   removeItem(key: string): Promise<void>;
 };
 
+export type StorageWarning = 'unreadable' | null;
+
+/** Copie brute, jamais la clé d'origine. `92mba:v1` reste la clé de l'app. */
+export function unreadableStorageKey(key: string): string {
+  return `${key}:unreadable`;
+}
+
 export type PersistOptions<T> = {
   merge?: (stored: Partial<T>) => T;
-  mergeLate?: (current: T, stored: Partial<T>) => T;
+  mergeLate?: (current: T, stored: Partial<T>, touched: ReadonlySet<string>) => T;
   /** Par défaut AsyncStorage. Les tests injectent un stockage en mémoire. */
   storage?: KeyValueStorage;
   /** Délai avant écriture. 150 ms dans l'app. */
@@ -32,22 +39,29 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
   const saveDelayMs = options.saveDelayMs ?? 150;
   let state: T = initial;
   let hydrated = false;
-  let mutated = false;
+  let dirty = false;
   let storageReady = false;
   let pendingWipe = false;
+  let warning: StorageWarning = null;
   let loadGen = 0;
+  const touched = new Set<string>();
   const listeners = new Set<() => void>();
   const emit = () => listeners.forEach((listener) => listener());
 
-  const apply = (raw: string | null) => {
-    if (!raw) return;
-    let parsed: Partial<T>;
+  const preserveUnreadable = async (gen: number, raw: string) => {
     try {
-      parsed = JSON.parse(raw) as Partial<T>;
+      await storage.setItem(unreadableStorageKey(key), raw);
     } catch {
-      return;
+      // La copie a échoué. La clé principale n'est pas réécrite pour autant.
     }
-    if (mutated && options.mergeLate) state = options.mergeLate(state, parsed);
+    if (gen !== loadGen) return;
+    warning = 'unreadable';
+    hydrated = true;
+    emit();
+  };
+
+  const applyParsed = (parsed: Partial<T>) => {
+    if (dirty && options.mergeLate) state = options.mergeLate(state, parsed, touched);
     else if (options.merge) state = options.merge(parsed);
     else state = { ...initial, ...parsed };
   };
@@ -77,11 +91,27 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
       storage.removeItem(key).catch(() => undefined);
       return;
     }
-    apply(raw);
+    if (raw) {
+      let parsed: Partial<T>;
+      try {
+        parsed = JSON.parse(raw) as Partial<T>;
+      } catch {
+        // Donnée illisible : on ne débloque pas l'écriture, sinon le prochain setItem écrase le cache.
+        if (gen !== loadGen) return;
+        await preserveUnreadable(gen, raw);
+        return;
+      }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        if (gen !== loadGen) return;
+        await preserveUnreadable(gen, raw);
+        return;
+      }
+      applyParsed(parsed);
+    }
     storageReady = true;
     hydrated = true;
     emit();
-    if (mutated) persist();
+    if (dirty) persist();
   };
 
   const start = () => {
@@ -111,14 +141,22 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
     get: () => state,
     set(patch: Partial<T> | ((current: T) => Partial<T>)) {
       const next = typeof patch === 'function' ? patch(state) : patch;
+      const keys = Object.keys(next);
+      if (keys.length === 0) return;
+      if (!storageReady) {
+        dirty = true;
+        for (const field of keys) {
+          if (!Object.is(state[field as keyof T], next[field as keyof T])) touched.add(field);
+        }
+      }
       state = { ...state, ...next };
-      mutated = true;
       emit();
       persist();
     },
     reset() {
       state = initial;
-      mutated = true;
+      dirty = true;
+      touched.clear();
       hydrated = true;
       emit();
       if (!storageReady) {
@@ -138,6 +176,14 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
     continueOffline() {
       hydrated = true;
       emit();
+    },
+    isStorageReady: () => storageReady,
+    getWarning: () => warning,
+    useStorageReady(): boolean {
+      return useSyncExternalStore(subscribe, () => storageReady, () => false);
+    },
+    useStorageWarning(): StorageWarning {
+      return useSyncExternalStore(subscribe, () => warning, () => null);
     },
     useStore(): T {
       return useSyncExternalStore(subscribe, () => state, () => state);

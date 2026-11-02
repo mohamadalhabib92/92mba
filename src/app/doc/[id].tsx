@@ -31,6 +31,8 @@ export default function Reader() {
   const [panel, setPanel] = useState<'none' | 'info' | 'bookmarks' | 'find' | 'display'>('none');
   const [find, setFind] = useState(sanitizeSearchQuery(params.q));
   const scrollRef = useRef<ScrollViewInstance>(null);
+  const userMoved = useRef(safePageIndex(params.page) !== null);
+  const storageReady = appStore.useStorageReady();
   const fonts = useAppFonts();
   const theme = readerThemes[s.readerTheme];
   const rtl = doc?.lang === 'ar';
@@ -45,15 +47,27 @@ export default function Reader() {
   const pad = readingPadding(s.readerMargin);
 
   useEffect(() => {
-    if (!doc) return;
-    setProgress(doc.id, page, pages.length);
     scrollRef.current?.scrollTo({ y: 0, animated: false });
-  }, [doc, page, pages.length]);
+  }, [page, doc?.id]);
+
+  useEffect(() => {
+    if (!doc || !storageReady) return;
+    const saved = s.progress[doc.id];
+    if (!userMoved.current) {
+      if (saved && saved.page !== page) {
+        setPage(Math.max(0, Math.min(saved.page, Math.max(0, pages.length - 1))));
+        return;
+      }
+      if (saved) return;
+    }
+    setProgress(doc.id, page, pages.length);
+  }, [doc, page, pages.length, storageReady, s.progress]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement | null)?.tagName === 'INPUT') return;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') userMoved.current = true;
       if (e.key === 'ArrowRight') setPage((p) => (rtl ? Math.max(0, p - 1) : Math.min(pages.length - 1, p + 1)));
       if (e.key === 'ArrowLeft') setPage((p) => (rtl ? Math.min(pages.length - 1, p + 1) : Math.max(0, p - 1)));
     };
@@ -85,7 +99,10 @@ export default function Reader() {
   const isMarked = marks.includes(page);
   const shown = dragPage ?? page;
   const pct = Math.round(((page + 1) / pages.length) * 100);
-  const go = (p: number) => setPage(Math.max(0, Math.min(pages.length - 1, p)));
+  const go = (p: number) => {
+    userMoved.current = true;
+    setPage(Math.max(0, Math.min(pages.length - 1, p)));
+  };
   const iconBtn = (name: keyof typeof Ionicons.glyphMap, label: string, onPress: () => void, active?: boolean) => (
     <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={[styles.iconBtn, active && { backgroundColor: theme.accent + '33' }]} hitSlop={4}>
       <Ionicons name={name} size={20} color={active ? theme.accent : theme.text} />

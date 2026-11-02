@@ -1,11 +1,12 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
+import { Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SuspenseFallback as RouteSuspense, ErrorBoundary as RouteErrorBoundary } from '../components/RouteFallback';
 import { BootFallback, BootSkeleton } from '../components/ui';
 import { FontProvider } from '../lib/fonts';
-import { I18nProvider } from '../lib/i18n';
+import { I18nProvider, useI18n } from '../lib/i18n';
 import { appStore, BOOT_TIMEOUT_MS } from '../lib/store';
 import { colors } from '../theme';
 
@@ -15,6 +16,17 @@ export function ErrorBoundary(props: { error: Error; retry: () => void | Promise
 
 export function SuspenseFallback() {
   return <RouteSuspense />;
+}
+
+function StorageWarning() {
+  const warning = appStore.useStorageWarning();
+  const { t } = useI18n();
+  if (warning !== 'unreadable') return null;
+  return (
+    <View style={{ backgroundColor: colors.noticeBg, paddingHorizontal: 16, paddingVertical: 12 }}>
+      <Text style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>{t('storageUnreadable')}</Text>
+    </View>
+  );
 }
 
 function Gate({ children }: { children: React.ReactNode }) {
@@ -29,7 +41,14 @@ function Gate({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(id);
   }, [hydrated, attempt]);
 
-  if (hydrated) return <>{children}</>;
+  if (hydrated) {
+    return (
+      <View style={{ flex: 1 }}>
+        <StorageWarning />
+        <View style={{ flex: 1 }}>{children}</View>
+      </View>
+    );
+  }
   if (timedOut) {
     return (
       <BootFallback

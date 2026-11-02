@@ -26,9 +26,24 @@ export function cleanHistory(list: unknown): string[] {
   return cleanHistoryList(list);
 }
 
-export function setProgress(id: string, page: number, pages: number) {
+type ProgressWriter = {
+  isStorageReady(): boolean;
+  set(patch: Partial<AppState> | ((current: AppState) => Partial<AppState>)): void;
+};
+
+/** N'écrit pas tant que le cache n'est pas lu : un page 0 automatique ne doit pas naître avant. */
+export function recordProgress(store: ProgressWriter, id: string, page: number, pages: number) {
   if (!id || !Number.isFinite(page) || !Number.isFinite(pages) || pages <= 0) return;
-  appStore.set((s) => ({ progress: { ...s.progress, [id]: { page, pages, updatedAt: Date.now() } } }));
+  if (!store.isStorageReady()) return;
+  store.set((s) => {
+    const prev = s.progress[id];
+    if (prev && prev.page === page && prev.pages === pages) return {};
+    return { progress: { ...s.progress, [id]: { page, pages, updatedAt: Date.now() } } };
+  });
+}
+
+export function setProgress(id: string, page: number, pages: number) {
+  recordProgress(appStore, id, page, pages);
 }
 
 export function toggleBookmark(id: string, page: number) {

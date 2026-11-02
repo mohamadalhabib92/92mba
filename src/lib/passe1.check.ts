@@ -1,7 +1,8 @@
 import { highlightColors, badgeTones, colors, contrastRatio, readerThemes, readingColumnWidth, snapFontScale, snapLineHeight, snapMargin } from '../theme';
 import { classifyOptionalFailure, FEATURE_ACCOUNT, FEATURE_AI, sentryEnabled } from './features';
 import { licenseAudit } from './library';
-import { createPersistedStore, type KeyValueStorage } from './persist';
+import { createPersistedStore, unreadableStorageKey, type KeyValueStorage } from './persist';
+import { recordProgress } from './store';
 import { defaultAppState, mergeLate, mergeStored } from './stateMerge';
 import type { Doc } from './library';
 import { cleanHistory, fillTemplate, safePageIndex, sanitizeSearchQuery } from './textGuard';
@@ -9,6 +10,8 @@ import { cleanHistory, fillTemplate, safePageIndex, sanitizeSearchQuery } from '
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
+
+const TAYLOR = 'taylor-scientific-management';
 
 function checkContrast(name: string, fg: string, bg: string, min = 4.5) {
   const ratio = contrastRatio(fg, bg);
@@ -97,21 +100,32 @@ const current = defaultAppState();
 current.userDocs = [docA];
 current.progress = { a: { page: 3, pages: 4, updatedAt: 20 } };
 current.lang = 'ar';
-const late = mergeLate(current, {
-  userDocs: [docB],
-  progress: { a: { page: 1, pages: 4, updatedAt: 2 }, b: { page: 0, pages: 2, updatedAt: 3 } },
-  bookmarks: { b: [1] },
-  searchHistory: ['undefined', 'swot'],
-});
-assert(late.lang === 'ar', 'session lang kept');
+const late = mergeLate(
+  current,
+  {
+    userDocs: [docB],
+    progress: { a: { page: 1, pages: 4, updatedAt: 2 }, b: { page: 0, pages: 2, updatedAt: 3 } },
+    bookmarks: { b: [1] },
+    searchHistory: ['undefined', 'swot'],
+  },
+  new Set(['lang']),
+);
+assert(late.lang === 'ar', 'langue réellement changée conservée');
 assert(late.userDocs.map((d) => d.id).sort().join() === 'a,b', 'docs union');
 assert(late.progress.a.page === 3 && late.progress.b.page === 0, 'progress union');
 assert(late.bookmarks.b[0] === 1, 'bookmark union');
 assert(!late.searchHistory.includes('undefined'), 'late history');
 
-void assertNoSaveBeforeSuccessfulLoad().then(() => {
+scenarioA_preferencesNotReplacedByDefaults();
+scenarioB_furthestPageWins();
+
+void (async () => {
+  await assertNoSaveBeforeSuccessfulLoad();
+  await scenarioA_continueOfflineKeepsSavedPreferences();
+  await scenarioB_pageZeroBeforeReadyDoesNotErase();
+  await scenarioC_unreadableStaysBlocked();
   console.log('passe1 checks ok');
-});
+})();
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -260,4 +274,146 @@ async function assertNoSaveBeforeSuccessfulLoad() {
   assert(fresh.join('|') !== '' && fresh[0] !== 'REMOVE', 'première installation : l’enregistrement après lecture vide doit fonctionner');
   const created = JSON.parse(fresh[0] ?? '{}') as { lang?: string; progress?: Record<string, unknown> };
   assert(created.lang === 'en' && created.progress && Object.keys(created.progress).length === 0, 'première sauvegarde inattendue');
+}
+
+function scenarioA_preferencesNotReplacedByDefaults() {
+  const session = defaultAppState();
+  session.progress = { [TAYLOR]: { page: 0, pages: 300, updatedAt: 9_999 } };
+  const merged = mergeLate(session, {
+    lang: 'ar',
+    readerTheme: 'dark',
+    fontScale: 1.4,
+    progress: { [TAYLOR]: { page: 120, pages: 300, updatedAt: 1 } },
+  });
+  assert(merged.lang === 'ar', `a: langue ${merged.lang}`);
+  assert(merged.readerTheme === 'dark', `a: thème ${merged.readerTheme}`);
+  assert(merged.fontScale === 1.4, `a: corps ${merged.fontScale}`);
+  assert(merged.progress[TAYLOR]?.page === 120, `a: page ${merged.progress[TAYLOR]?.page}`);
+
+  const changed = defaultAppState();
+  changed.lang = 'en';
+  const kept = mergeLate(changed, { lang: 'ar', readerTheme: 'dark', fontScale: 1.4 }, new Set(['lang']));
+  assert(kept.lang === 'en', 'a: langue touchée');
+  assert(kept.readerTheme === 'dark' && kept.fontScale === 1.4, 'a: les autres préférences restent celles du cache');
+}
+
+function scenarioB_furthestPageWins() {
+  const session = defaultAppState();
+  session.progress = { [TAYLOR]: { page: 0, pages: 300, updatedAt: Date.now() } };
+  const merged = mergeLate(session, {
+    progress: { [TAYLOR]: { page: 120, pages: 300, updatedAt: 1 } },
+  });
+  assert(merged.progress[TAYLOR]?.page === 120, `b: page fusionnée ${merged.progress[TAYLOR]?.page}`);
+}
+
+async function scenarioA_continueOfflineKeepsSavedPreferences() {
+  const saved = JSON.stringify({
+    lang: 'ar',
+    readerTheme: 'dark',
+    fontScale: 1.4,
+    progress: { [TAYLOR]: { page: 120, pages: 300, updatedAt: 4 } },
+  });
+  const writes: string[] = [];
+  let open: ((value: string | null) => void) | null = null;
+  const storage: KeyValueStorage = {
+    getItem: () =>
+      new Promise((resolve) => {
+        open = resolve;
+      }),
+    setItem: async (_key, value) => {
+      writes.push(value);
+    },
+    removeItem: async () => {
+      writes.push('REMOVE');
+    },
+  };
+  const store = createPersistedStore('92mba:v1', defaultAppState(), {
+    storage,
+    saveDelayMs: 0,
+    merge: mergeStored,
+    mergeLate,
+  });
+  store.continueOffline();
+  store.set({ progress: { [TAYLOR]: { page: 0, pages: 300, updatedAt: Date.now() } } });
+  await wait(30);
+  open!(saved);
+  await wait(40);
+  const state = store.get();
+  assert(state.lang === 'ar' && state.readerTheme === 'dark' && state.fontScale === 1.4, `a: session ${state.lang}/${state.readerTheme}/${state.fontScale}`);
+  assert(state.progress[TAYLOR]?.page === 120, `a: progression ${state.progress[TAYLOR]?.page}`);
+  const written = writes.filter((item) => item !== 'REMOVE').map((item) => JSON.parse(item) as { lang?: string; readerTheme?: string; fontScale?: number; progress?: Record<string, { page?: number }> });
+  assert(written.length >= 1, 'a: la sauvegarde après fusion n’a pas eu lieu');
+  for (const item of written) {
+    assert(item.lang === 'ar' && item.readerTheme === 'dark' && item.fontScale === 1.4, `a: écriture ${JSON.stringify(item)}`);
+    assert(item.progress?.[TAYLOR]?.page === 120, `a: écriture page ${item.progress?.[TAYLOR]?.page}`);
+  }
+}
+
+async function scenarioB_pageZeroBeforeReadyDoesNotErase() {
+  const saved = JSON.stringify({
+    lang: 'ar',
+    readerTheme: 'dark',
+    fontScale: 1.4,
+    progress: { [TAYLOR]: { page: 120, pages: 300, updatedAt: 4 } },
+  });
+  let open: ((value: string | null) => void) | null = null;
+  const storage: KeyValueStorage = {
+    getItem: () =>
+      new Promise((resolve) => {
+        open = resolve;
+      }),
+    setItem: async () => undefined,
+    removeItem: async () => undefined,
+  };
+  const store = createPersistedStore('92mba:v1', defaultAppState(), {
+    storage,
+    saveDelayMs: 0,
+    merge: mergeStored,
+    mergeLate,
+  });
+  store.continueOffline();
+  assert(store.isStorageReady() === false, 'b: storage pas prêt');
+  recordProgress(store, TAYLOR, 0, 300);
+  assert(store.get().progress[TAYLOR] === undefined, 'b: page 0 enregistrée avant la lecture');
+  open!(saved);
+  await wait(40);
+  assert(store.isStorageReady() === true, 'b: lecture terminée');
+  assert(store.get().progress[TAYLOR]?.page === 120, `b: Taylor ${store.get().progress[TAYLOR]?.page}`);
+  recordProgress(store, TAYLOR, 121, 300);
+  assert(store.get().progress[TAYLOR]?.page === 121, 'b: avance réelle après la lecture');
+}
+
+async function scenarioC_unreadableStaysBlocked() {
+  const raw = '{"lang":"ar","readerTheme":"dark",';
+  const disk = new Map<string, string>([['92mba:v1', raw]]);
+  const writes: { key: string; value: string }[] = [];
+  const storage: KeyValueStorage = {
+    getItem: async (key) => disk.get(key) ?? null,
+    setItem: async (key, value) => {
+      writes.push({ key, value });
+      disk.set(key, value);
+    },
+    removeItem: async (key) => {
+      disk.delete(key);
+      writes.push({ key, value: 'REMOVE' });
+    },
+  };
+  const store = createPersistedStore('92mba:v1', defaultAppState(), {
+    storage,
+    saveDelayMs: 0,
+    merge: mergeStored,
+    mergeLate,
+  });
+  store.continueOffline();
+  store.set({ lang: 'en' });
+  await wait(40);
+  assert(store.getWarning() === 'unreadable', `c: avertissement ${store.getWarning()}`);
+  assert(store.isStorageReady() === false, 'c: écriture débloquée sur un JSON illisible');
+  assert(disk.get('92mba:v1') === raw, 'c: clé principale écrasée');
+  assert(disk.get(unreadableStorageKey('92mba:v1')) === raw, 'c: copie brute absente');
+  assert(writes.every((item) => item.key === unreadableStorageKey('92mba:v1')), `c: écritures ${JSON.stringify(writes)}`);
+  store.set({ fontScale: 1.4, readerTheme: 'light' });
+  await wait(40);
+  assert(disk.get('92mba:v1') === raw, 'c: première modification après coup a écrasé le cache');
+  assert(writes.filter((item) => item.key === '92mba:v1').length === 0, 'c: setItem sur la clé principale');
 }

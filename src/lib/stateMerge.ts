@@ -6,6 +6,10 @@ import { cleanHistory } from './textGuard';
 
 export type Progress = { page: number; pages: number; updatedAt: number };
 
+/** Préférences : seules celles réellement changées par l'utilisateur gagnent sur le cache. */
+export const PREFERENCE_KEYS = ['lang', 'fontScale', 'lineHeight', 'readerMargin', 'dyslexia', 'readerTheme'] as const;
+export type PreferenceKey = (typeof PREFERENCE_KEYS)[number];
+
 export type AppState = {
   lang: Lang;
   fontScale: number;
@@ -121,16 +125,23 @@ export function mergeStored(stored: Partial<AppState> | null | undefined): AppSt
   };
 }
 
+function furtherPage(a: Progress, b: Progress): Progress {
+  if (a.page !== b.page) return a.page > b.page ? a : b;
+  return a.updatedAt >= b.updatedAt ? a : b;
+}
+
 /**
  * Le cache arrive après « Continuer hors ligne ».
- * Les préférences de la session restent, et progression / signets / documents sont unis (aucune perte).
+ * Chaque préférence de la session ne remplace le cache que si l'utilisateur l'a vraiment changée.
+ * La progression garde la page la plus avancée, pas la plus récente (un page 0 automatique ne gagne pas).
  */
-export function mergeLate(current: AppState, stored: Partial<AppState>): AppState {
+export function mergeLate(current: AppState, stored: Partial<AppState>, touched?: ReadonlySet<string>): AppState {
   const saved = mergeStored(stored);
+  const keep = touched ?? new Set<string>();
   const progress: Record<string, Progress> = { ...saved.progress };
   for (const [id, page] of Object.entries(current.progress)) {
     const other = progress[id];
-    if (!other || page.updatedAt >= other.updatedAt) progress[id] = page;
+    progress[id] = other ? furtherPage(page, other) : page;
   }
   const bookmarks: Record<string, number[]> = { ...saved.bookmarks };
   for (const [id, pages] of Object.entries(current.bookmarks)) {
@@ -140,12 +151,12 @@ export function mergeLate(current: AppState, stored: Partial<AppState>): AppStat
   for (const doc of saved.userDocs) docs.set(doc.id, doc);
   for (const doc of current.userDocs) docs.set(doc.id, doc);
   return {
-    lang: current.lang,
-    fontScale: current.fontScale,
-    lineHeight: current.lineHeight,
-    readerMargin: current.readerMargin,
-    dyslexia: current.dyslexia,
-    readerTheme: current.readerTheme,
+    lang: keep.has('lang') ? current.lang : saved.lang,
+    fontScale: keep.has('fontScale') ? current.fontScale : saved.fontScale,
+    lineHeight: keep.has('lineHeight') ? current.lineHeight : saved.lineHeight,
+    readerMargin: keep.has('readerMargin') ? current.readerMargin : saved.readerMargin,
+    dyslexia: keep.has('dyslexia') ? current.dyslexia : saved.dyslexia,
+    readerTheme: keep.has('readerTheme') ? current.readerTheme : saved.readerTheme,
     progress,
     bookmarks,
     searchHistory: cleanHistory([...current.searchHistory, ...saved.searchHistory]),

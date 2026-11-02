@@ -120,6 +120,8 @@ const fr = {
   readingSettings: 'Lecture',
   errorTitle: 'Une erreur est survenue',
   errorText: '92\'MBA n\'a pas pu afficher cet écran. Vos documents intégrés restent sur cet appareil.',
+  storageUnreadable:
+    'Les données enregistrées sur cet appareil n’ont pas pu être lues. Une copie brute a été conservée : rien n’a été écrasé.',
 };
 type Dict = Record<keyof typeof fr, string>;
 
@@ -237,6 +239,7 @@ const en: Dict = {
   readingSettings: 'Reading',
   errorTitle: 'Something went wrong',
   errorText: '92\'MBA could not show this screen. The built-in documents are still on this device.',
+  storageUnreadable: 'The saved data on this device could not be read. A raw copy was kept and nothing was overwritten.',
 };
 
 const ar: Dict = {
@@ -353,6 +356,7 @@ const ar: Dict = {
   readingSettings: 'القراءة',
   errorTitle: 'حدث خطأ',
   errorText: 'تعذّر على 92\'MBA عرض هذه الشاشة. المستندات المدمجة ما زالت على هذا الجهاز.',
+  storageUnreadable: 'تعذّرت قراءة البيانات المحفوظة على هذا الجهاز. احتفظنا بنسخة خام ولم يُستبدل شيء.',
 };
 
 export const dictionaries: Record<Lang, Dict> = { fr, en, ar };
