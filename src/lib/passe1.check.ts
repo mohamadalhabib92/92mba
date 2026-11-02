@@ -2,8 +2,8 @@ import { highlightColors, badgeTones, colors, contrastRatio, readerThemes, readi
 import { classifyOptionalFailure, FEATURE_ACCOUNT, FEATURE_AI, sentryEnabled } from './features';
 import { licenseAudit } from './library';
 import { createPersistedStore, unreadableStorageKey, type KeyValueStorage } from './persist';
-import { recordProgress } from './store';
-import { defaultAppState, mergeLate, mergeStored } from './stateMerge';
+import { commitSessionProgress, recordProgress } from './store';
+import { defaultAppState, mergeLate, mergeStored, readingPageToKeep } from './stateMerge';
 import type { Doc } from './library';
 import { cleanHistory, fillTemplate, safePageIndex, sanitizeSearchQuery } from './textGuard';
 
@@ -123,7 +123,12 @@ void (async () => {
   await assertNoSaveBeforeSuccessfulLoad();
   await scenarioA_continueOfflineKeepsSavedPreferences();
   await scenarioB_pageZeroBeforeReadyDoesNotErase();
+  await scenarioB2_nextBeforeReadyKeepsSavedPage();
   await scenarioC_unreadableStaysBlocked();
+  await scenarioC4_resetWaitsForVerifiedCopy();
+  await scenarioC_copyFailureRefusesReset();
+  await scenarioC_copyMismatchRefusesReset();
+  await scenarioC_datedSuffixKeepsPreviousCopy();
   console.log('passe1 checks ok');
 })();
 
@@ -416,4 +421,179 @@ async function scenarioC_unreadableStaysBlocked() {
   await wait(40);
   assert(disk.get('92mba:v1') === raw, 'c: première modification après coup a écrasé le cache');
   assert(writes.filter((item) => item.key === '92mba:v1').length === 0, 'c: setItem sur la clé principale');
+}
+
+async function scenarioB2_nextBeforeReadyKeepsSavedPage() {
+  assert(readingPageToKeep(120, 1, true) === 120, 'b2: page 1 remplace 120');
+  assert(readingPageToKeep(120, 121, true) === 121, 'b2: une avance réelle doit compter');
+  assert(readingPageToKeep(120, 0, false) === 120, 'b2: page automatique 0');
+  const saved = JSON.stringify({
+    progress: { [TAYLOR]: { page: 120, pages: 300, updatedAt: 4 } },
+  });
+  const storage: KeyValueStorage = {
+    getItem: async () => saved,
+    setItem: async () => undefined,
+    removeItem: async () => undefined,
+  };
+  const store = createPersistedStore('92mba:v1', defaultAppState(), {
+    storage,
+    saveDelayMs: 0,
+    merge: mergeStored,
+    mergeLate,
+  });
+  await wait(30);
+  const kept = commitSessionProgress(store, TAYLOR, 1, 300, true);
+  assert(kept === 120, `b2: commit ${kept}`);
+  assert(store.get().progress[TAYLOR]?.page === 120, `b2: stockée ${store.get().progress[TAYLOR]?.page}`);
+  const ahead = commitSessionProgress(store, TAYLOR, 121, 300, true);
+  assert(ahead === 121 && store.get().progress[TAYLOR]?.page === 121, 'b2: page suivante après lecture');
+}
+
+async function scenarioC4_resetWaitsForVerifiedCopy() {
+  const raw = '{"lang":"ar"';
+  const disk = new Map<string, string>([['92mba:v1', raw]]);
+  const ops: string[] = [];
+  let release: ((value: string) => void) | null = null;
+  let mainReads = 0;
+  const storage: KeyValueStorage = {
+    getItem: (key) => {
+      ops.push(`get:${key}`);
+      if (key === '92mba:v1' && mainReads === 0) {
+        mainReads += 1;
+        return new Promise((resolve) => {
+          release = resolve;
+        });
+      }
+      return Promise.resolve(disk.get(key) ?? null);
+    },
+    setItem: async (key, value) => {
+      ops.push(`set:${key}`);
+      disk.set(key, value);
+    },
+    removeItem: async (key) => {
+      ops.push(`rm:${key}`);
+      disk.delete(key);
+    },
+  };
+  const store = createPersistedStore('92mba:v1', defaultAppState(), {
+    storage,
+    saveDelayMs: 0,
+    merge: mergeStored,
+    mergeLate,
+  });
+  store.continueOffline();
+  assert(store.reset() === 'pending', 'c4: reset trop tôt');
+  await wait(30);
+  assert(disk.get('92mba:v1') === raw, 'c4: original supprimé avant analyse');
+  assert(!ops.includes('rm:92mba:v1'), `c4: rm prématuré ${ops.join(' ')}`);
+  release!(raw);
+  await wait(40);
+  const copy = unreadableStorageKey('92mba:v1');
+  assert(disk.get(copy) === raw, 'c4: copie non vérifiée');
+  assert(!disk.has('92mba:v1'), 'c4: original encore présent après copie identique');
+  const setAt = ops.indexOf(`set:${copy}`);
+  const readBack = ops.findIndex((op, index) => op === `get:${copy}` && index > setAt);
+  const rmAt = ops.indexOf('rm:92mba:v1');
+  assert(setAt >= 0 && readBack > setAt && rmAt > readBack, `c4: ordre ${ops.join(' ')}`);
+  assert(store.getResetResult() === 'wiped', `c4: résultat ${store.getResetResult()}`);
+}
+
+async function scenarioC_copyFailureRefusesReset() {
+  const raw = '{"lang":"ar"';
+  const disk = new Map<string, string>([['92mba:v1', raw]]);
+  const ops: string[] = [];
+  const storage: KeyValueStorage = {
+    getItem: async (key) => disk.get(key) ?? null,
+    setItem: async (key) => {
+      ops.push(`set:${key}`);
+      throw new Error('disk full');
+    },
+    removeItem: async (key) => {
+      ops.push(`rm:${key}`);
+      disk.delete(key);
+    },
+  };
+  const store = createPersistedStore('92mba:v1', defaultAppState(), {
+    storage,
+    saveDelayMs: 0,
+    merge: mergeStored,
+    mergeLate,
+  });
+  store.continueOffline();
+  await wait(30);
+  assert(store.getWarning() === 'copy-failed', `copie ${store.getWarning()}`);
+  assert(disk.get('92mba:v1') === raw, 'échec copie : original modifié');
+  assert(store.reset() === 'refused', 'reset accepté sans copie');
+  await wait(20);
+  assert(disk.get('92mba:v1') === raw, 'reset a modifié l’original');
+  assert(!ops.some((op) => op.startsWith('rm:')), `rm malgré l’échec ${ops.join(' ')}`);
+}
+
+async function scenarioC_copyMismatchRefusesReset() {
+  const raw = '{"lang":"ar"';
+  const disk = new Map<string, string>([['92mba:v1', raw]]);
+  const copy = unreadableStorageKey('92mba:v1');
+  let copyReads = 0;
+  const storage: KeyValueStorage = {
+    getItem: async (key) => {
+      if (key === copy) {
+        copyReads += 1;
+        return copyReads === 1 ? null : `${raw}!`;
+      }
+      return disk.get(key) ?? null;
+    },
+    setItem: async (key, value) => {
+      disk.set(key, value);
+    },
+    removeItem: async (key) => {
+      disk.delete(key);
+    },
+  };
+  const store = createPersistedStore('92mba:v1', defaultAppState(), {
+    storage,
+    saveDelayMs: 0,
+    merge: mergeStored,
+    mergeLate,
+  });
+  store.continueOffline();
+  await wait(30);
+  assert(store.getWarning() === 'copy-failed', `altération ${store.getWarning()}`);
+  assert(store.isCopyVerified() === false, 'copie altérée considérée vérifiée');
+  assert(disk.get('92mba:v1') === raw, 'altération : original modifié');
+  assert(store.reset() === 'refused', 'reset après copie différente');
+  await wait(20);
+  assert(disk.get('92mba:v1') === raw, 'reset a effacé l’original non copié');
+}
+
+async function scenarioC_datedSuffixKeepsPreviousCopy() {
+  const raw = '{"lang":"ar"';
+  const previous = 'ancienne-copie-differente';
+  const copy = unreadableStorageKey('92mba:v1');
+  const disk = new Map<string, string>([
+    ['92mba:v1', raw],
+    [copy, previous],
+  ]);
+  const storage: KeyValueStorage = {
+    getItem: async (key) => disk.get(key) ?? null,
+    setItem: async (key, value) => {
+      disk.set(key, value);
+    },
+    removeItem: async (key) => {
+      disk.delete(key);
+    },
+  };
+  const store = createPersistedStore('92mba:v1', defaultAppState(), {
+    storage,
+    saveDelayMs: 0,
+    merge: mergeStored,
+    mergeLate,
+    now: () => '2026-11-02T22:08:00.000Z',
+  });
+  store.continueOffline();
+  await wait(30);
+  const dated = `${copy}:2026-11-02T22-08-00-000Z`;
+  assert(disk.get(copy) === previous, 'l’ancienne copie a été écrasée');
+  assert(disk.get(dated) === raw, `suffixe daté absent (${[...disk.keys()].join(', ')})`);
+  assert(disk.get('92mba:v1') === raw, 'original modifié en ajoutant un suffixe');
+  assert(store.getWarning() === 'unreadable' && store.isCopyVerified(), 'copie datée non vérifiée');
 }

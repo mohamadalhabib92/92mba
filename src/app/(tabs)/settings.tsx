@@ -13,8 +13,12 @@ import { colors, type ReaderTheme } from '../../theme';
 export default function Settings() {
   const { t, lang, setLang, dir } = useI18n();
   const s = appStore.useStore();
+  const warning = appStore.useStorageWarning();
+  const copyVerified = appStore.useCopyVerified();
+  const resetResult = appStore.useResetResult();
   const [confirm, setConfirm] = useState(false);
-  const [done, setDone] = useState(false);
+  const resetBlocked = warning === 'copy-failed' || (warning === 'unreadable' && !copyVerified);
+  const canStartFresh = warning === 'unreadable' && copyVerified;
   const themes: { k: ReaderTheme; l: string }[] = [
     { k: 'light', l: t('themeLight') },
     { k: 'sepia', l: t('themeSepia') },
@@ -64,17 +68,38 @@ export default function Settings() {
       <Card>
         <H3>{t('dataLocal')}</H3>
         <Body>{t('dataLocalText')}</Body>
-        <Button
-          variant={confirm ? 'danger' : 'ghost'}
-          label={confirm ? t('confirmReset') : t('resetData')}
-          onPress={() => {
-            if (!confirm) return setConfirm(true);
-            appStore.reset();
-            setConfirm(false);
-            setDone(true);
-          }}
-        />
-        {done ? <Muted>{t('resetDone')}</Muted> : null}
+        {resetBlocked ? (
+          <>
+            <Body>{t('storageCopyFailed')}</Body>
+            <Body>{t('resetRefused')}</Body>
+          </>
+        ) : canStartFresh ? (
+          <>
+            <Body>{t('freshStartHint')}</Body>
+            <Button
+              variant={confirm ? 'danger' : 'ghost'}
+              label={confirm ? t('confirmFreshStart') : t('freshStart')}
+              onPress={() => {
+                if (!confirm) return setConfirm(true);
+                appStore.reset();
+                setConfirm(false);
+              }}
+            />
+          </>
+        ) : (
+          <Button
+            variant={confirm ? 'danger' : 'ghost'}
+            label={confirm ? t('confirmReset') : t('resetData')}
+            onPress={() => {
+              if (!confirm) return setConfirm(true);
+              appStore.reset();
+              setConfirm(false);
+            }}
+          />
+        )}
+        {resetResult === 'pending' ? <Muted>{t('resetPending')}</Muted> : null}
+        {resetResult === 'refused' && !resetBlocked ? <Body>{t('resetRefused')}</Body> : null}
+        {resetResult === 'wiped' ? <Muted>{t('resetDone')}</Muted> : null}
       </Card>
       <Muted center>92'MBA · v1.0.0</Muted>
     </Screen>

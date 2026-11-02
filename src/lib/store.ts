@@ -1,5 +1,5 @@
 import { createPersistedStore, BOOT_TIMEOUT_MS } from './persist';
-import { defaultAppState, mergeLate, mergeStored, type AppState, type Progress } from './stateMerge';
+import { defaultAppState, mergeLate, mergeStored, readingPageToKeep, type AppState, type Progress } from './stateMerge';
 import { cleanHistory as cleanHistoryList, sanitizeSearchQuery } from './textGuard';
 
 export type { AppState, Progress };
@@ -44,6 +44,19 @@ export function recordProgress(store: ProgressWriter, id: string, page: number, 
 
 export function setProgress(id: string, page: number, pages: number) {
   recordProgress(appStore, id, page, pages);
+}
+
+/** Après la lecture : n'enregistre pas une page de session inférieure à la page déjà sauvée. */
+export function commitSessionProgress(
+  store: ProgressWriter & { get(): AppState },
+  id: string,
+  sessionPage: number,
+  pages: number,
+  userMoved: boolean,
+) {
+  const next = readingPageToKeep(store.get().progress[id]?.page, sessionPage, userMoved);
+  recordProgress(store, id, next, pages);
+  return next;
 }
 
 export function toggleBookmark(id: string, page: number) {

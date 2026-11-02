@@ -10,7 +10,8 @@ export type KeyValueStorage = {
   removeItem(key: string): Promise<void>;
 };
 
-export type StorageWarning = 'unreadable' | null;
+export type StorageWarning = 'unreadable' | 'copy-failed' | null;
+export type ResetResult = 'idle' | 'pending' | 'wiped' | 'refused';
 
 /** Copie brute, jamais la clé d'origine. `92mba:v1` reste la clé de l'app. */
 export function unreadableStorageKey(key: string): string {
@@ -24,6 +25,8 @@ export type PersistOptions<T> = {
   storage?: KeyValueStorage;
   /** Délai avant écriture. 150 ms dans l'app. */
   saveDelayMs?: number;
+  /** Horodatage injectable pour le suffixe de copie. */
+  now?: () => string;
 };
 
 /**
@@ -43,19 +46,75 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
   let storageReady = false;
   let pendingWipe = false;
   let warning: StorageWarning = null;
+  let copyVerified = false;
+  let resetResult: ResetResult = 'idle';
   let loadGen = 0;
   const touched = new Set<string>();
   const listeners = new Set<() => void>();
   const emit = () => listeners.forEach((listener) => listener());
+  const stamp = () => (options.now ?? (() => new Date().toISOString()))();
 
-  const preserveUnreadable = async (gen: number, raw: string) => {
-    try {
-      await storage.setItem(unreadableStorageKey(key), raw);
-    } catch {
-      // La copie a échoué. La clé principale n'est pas réécrite pour autant.
+  const markCopyFailed = () => {
+    warning = 'copy-failed';
+    copyVerified = false;
+    hydrated = true;
+    if (pendingWipe || resetResult === 'pending') {
+      pendingWipe = false;
+      resetResult = 'refused';
     }
-    if (gen !== loadGen) return;
-    warning = 'unreadable';
+    emit();
+  };
+
+  /** Écrit la copie, la relit, et ne la considère vraie que si elle est identique à l'original. */
+  const preserveUnreadable = async (gen: number, raw: string): Promise<boolean> => {
+    try {
+      const base = unreadableStorageKey(key);
+      let dest = base;
+      const existing = await storage.getItem(base);
+      if (existing !== null && existing !== raw) {
+        const dated = `${base}:${stamp().replace(/[:.]/g, '-')}`;
+        dest = dated;
+        let n = 2;
+        while (n < 50) {
+          const taken = await storage.getItem(dest);
+          if (taken === null || taken === raw) break;
+          dest = `${dated}-${n}`;
+          n += 1;
+        }
+      }
+      await storage.setItem(dest, raw);
+      const back = await storage.getItem(dest);
+      if (back !== raw) throw new Error('copy mismatch');
+      if (gen !== loadGen) return false;
+      warning = 'unreadable';
+      copyVerified = true;
+      hydrated = true;
+      emit();
+      return true;
+    } catch {
+      if (gen !== loadGen) return false;
+      markCopyFailed();
+      return false;
+    }
+  };
+
+  const wipeOriginal = async () => {
+    pendingWipe = true;
+    try {
+      await storage.removeItem(key);
+    } catch {
+      pendingWipe = false;
+      resetResult = 'refused';
+      emit();
+      return;
+    }
+    pendingWipe = false;
+    state = initial;
+    dirty = false;
+    touched.clear();
+    storageReady = true;
+    warning = null;
+    resetResult = 'wiped';
     hydrated = true;
     emit();
   };
@@ -72,41 +131,41 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
       raw = await storage.getItem(key);
     } catch {
       if (gen !== loadGen) return;
-      if (pendingWipe) {
-        pendingWipe = false;
-        storageReady = true;
-        hydrated = true;
-        storage.removeItem(key).catch(() => undefined);
-      }
-      emit();
+      // Pas d'octets à copier : on ne supprime pas l'original.
+      if (pendingWipe || resetResult === 'pending') markCopyFailed();
+      else emit();
       return;
     }
     if (gen !== loadGen) return;
-    if (pendingWipe) {
-      pendingWipe = false;
-      state = initial;
-      storageReady = true;
-      hydrated = true;
-      emit();
-      storage.removeItem(key).catch(() => undefined);
-      return;
-    }
     if (raw) {
-      let parsed: Partial<T>;
+      let parsed: Partial<T> | undefined;
+      let unreadable = false;
       try {
         parsed = JSON.parse(raw) as Partial<T>;
       } catch {
-        // Donnée illisible : on ne débloque pas l'écriture, sinon le prochain setItem écrase le cache.
+        unreadable = true;
+      }
+      if (!unreadable && (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))) unreadable = true;
+      if (unreadable) {
         if (gen !== loadGen) return;
-        await preserveUnreadable(gen, raw);
+        const verified = await preserveUnreadable(gen, raw);
+        if (gen !== loadGen) return;
+        if (pendingWipe || resetResult === 'pending') {
+          if (verified) await wipeOriginal();
+          else if (resetResult !== 'refused') markCopyFailed();
+        }
         return;
       }
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        if (gen !== loadGen) return;
-        await preserveUnreadable(gen, raw);
+      if (pendingWipe) {
+        await wipeOriginal();
         return;
       }
-      applyParsed(parsed);
+      applyParsed(parsed as Partial<T>);
+      warning = null;
+      copyVerified = false;
+    } else if (pendingWipe) {
+      await wipeOriginal();
+      return;
     }
     storageReady = true;
     hydrated = true;
@@ -153,20 +212,27 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
       emit();
       persist();
     },
-    reset() {
-      state = initial;
-      dirty = true;
-      touched.clear();
-      hydrated = true;
-      emit();
+    reset(): ResetResult {
+      if (warning === 'copy-failed' || (warning === 'unreadable' && !copyVerified)) {
+        markCopyFailed();
+        resetResult = 'refused';
+        emit();
+        return 'refused';
+      }
+      if (warning === 'unreadable' && copyVerified) {
+        void wipeOriginal();
+        return 'wiped';
+      }
       if (!storageReady) {
         pendingWipe = true;
+        resetResult = 'pending';
         if (saveTimer) clearTimeout(saveTimer);
-        return;
+        emit();
+        return 'pending';
       }
       loadGen += 1;
-      pendingWipe = false;
-      storage.removeItem(key).catch(() => undefined);
+      void wipeOriginal();
+      return 'wiped';
     },
     retryHydration() {
       hydrated = false;
@@ -178,12 +244,20 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
       emit();
     },
     isStorageReady: () => storageReady,
+    isCopyVerified: () => copyVerified,
     getWarning: () => warning,
+    getResetResult: () => resetResult,
     useStorageReady(): boolean {
       return useSyncExternalStore(subscribe, () => storageReady, () => false);
     },
+    useCopyVerified(): boolean {
+      return useSyncExternalStore(subscribe, () => copyVerified, () => false);
+    },
     useStorageWarning(): StorageWarning {
       return useSyncExternalStore(subscribe, () => warning, () => null);
+    },
+    useResetResult(): ResetResult {
+      return useSyncExternalStore(subscribe, () => resetResult, () => 'idle');
     },
     useStore(): T {
       return useSyncExternalStore(subscribe, () => state, () => state);

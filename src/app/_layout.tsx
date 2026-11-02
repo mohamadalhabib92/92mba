@@ -21,10 +21,12 @@ export function SuspenseFallback() {
 function StorageWarning() {
   const warning = appStore.useStorageWarning();
   const { t } = useI18n();
-  if (warning !== 'unreadable') return null;
+  if (warning !== 'unreadable' && warning !== 'copy-failed') return null;
   return (
     <View style={{ backgroundColor: colors.noticeBg, paddingHorizontal: 16, paddingVertical: 12 }}>
-      <Text style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>{t('storageUnreadable')}</Text>
+      <Text style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>
+        {t(warning === 'copy-failed' ? 'storageCopyFailed' : 'storageUnreadable')}
+      </Text>
     </View>
   );
 }

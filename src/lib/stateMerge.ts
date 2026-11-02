@@ -131,6 +131,16 @@ function furtherPage(a: Progress, b: Progress): Progress {
 }
 
 /**
+ * Page à conserver quand la lecture du cache se termine après un « suivant ».
+ * max(page enregistrée, page de la session) : la page 1 ne remplace pas la page 120.
+ */
+export function readingPageToKeep(savedPage: number | undefined, sessionPage: number, userMoved: boolean): number {
+  const saved = typeof savedPage === 'number' && Number.isFinite(savedPage) ? savedPage : 0;
+  const session = userMoved && Number.isFinite(sessionPage) ? sessionPage : saved;
+  return Math.max(saved, session);
+}
+
+/**
  * Le cache arrive après « Continuer hors ligne ».
  * Chaque préférence de la session ne remplace le cache que si l'utilisateur l'a vraiment changée.
  * La progression garde la page la plus avancée, pas la plus récente (un page 0 automatique ne gagne pas).

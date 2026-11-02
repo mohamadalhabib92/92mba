@@ -9,7 +9,8 @@ import { Badge, Button, EmptyState, Muted, Row, Slider } from '../../components/
 import { useI18n } from '../../lib/i18n';
 import { useAppFonts } from '../../lib/fonts';
 import { CATEGORY_LABELS, findDoc, licenseBadgeLabel, licenseStatusCodeOf, normalize, paginate } from '../../lib/library';
-import { appStore, setProgress, toggleBookmark } from '../../lib/store';
+import { appStore, commitSessionProgress, setProgress, toggleBookmark } from '../../lib/store';
+import { readingPageToKeep } from '../../lib/stateMerge';
 import { firstString, safePageIndex, sanitizeSearchQuery } from '../../lib/textGuard';
 import { colors, readingColumnWidth, readingPadding, readerThemes, snapFontScale, snapLineHeight, ReaderTheme } from '../../theme';
 
@@ -32,6 +33,7 @@ export default function Reader() {
   const [find, setFind] = useState(sanitizeSearchQuery(params.q));
   const scrollRef = useRef<ScrollViewInstance>(null);
   const userMoved = useRef(safePageIndex(params.page) !== null);
+  const committedDoc = useRef<string | null>(null);
   const storageReady = appStore.useStorageReady();
   const fonts = useAppFonts();
   const theme = readerThemes[s.readerTheme];
@@ -52,13 +54,17 @@ export default function Reader() {
 
   useEffect(() => {
     if (!doc || !storageReady) return;
-    const saved = s.progress[doc.id];
-    if (!userMoved.current) {
-      if (saved && saved.page !== page) {
-        setPage(Math.max(0, Math.min(saved.page, Math.max(0, pages.length - 1))));
+    const savedPage = s.progress[doc.id]?.page;
+    if (committedDoc.current !== doc.id) {
+      const next = readingPageToKeep(savedPage, page, userMoved.current);
+      const clamped = Math.max(0, Math.min(next, Math.max(0, pages.length - 1)));
+      if (clamped !== page) {
+        setPage(clamped);
         return;
       }
-      if (saved) return;
+      committedDoc.current = doc.id;
+      commitSessionProgress(appStore, doc.id, page, pages.length, true);
+      return;
     }
     setProgress(doc.id, page, pages.length);
   }, [doc, page, pages.length, storageReady, s.progress]);

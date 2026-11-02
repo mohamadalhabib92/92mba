@@ -122,6 +122,12 @@ const fr = {
   errorText: '92\'MBA n\'a pas pu afficher cet écran. Vos documents intégrés restent sur cet appareil.',
   storageUnreadable:
     'Les données enregistrées sur cet appareil n’ont pas pu être lues. Une copie brute a été conservée : rien n’a été écrasé.',
+  storageCopyFailed: 'Copie impossible, rien n’a été modifié',
+  resetRefused: 'Réinitialisation refusée : la copie de secours n’est pas vérifiée. Les données d’origine sont inchangées.',
+  freshStart: 'Repartir de zéro',
+  confirmFreshStart: 'Appuyez encore pour repartir de zéro',
+  freshStartHint: 'Une copie vérifiée est conservée. L’original sera ensuite effacé de cet appareil.',
+  resetPending: 'Lecture des données en cours. Rien n’est effacé tant que la copie n’est pas vérifiée.',
 };
 type Dict = Record<keyof typeof fr, string>;
 
@@ -240,6 +246,12 @@ const en: Dict = {
   errorTitle: 'Something went wrong',
   errorText: '92\'MBA could not show this screen. The built-in documents are still on this device.',
   storageUnreadable: 'The saved data on this device could not be read. A raw copy was kept and nothing was overwritten.',
+  storageCopyFailed: 'Copy impossible, nothing was changed',
+  resetRefused: 'Reset refused: the backup copy is not verified. The original data is unchanged.',
+  freshStart: 'Start over',
+  confirmFreshStart: 'Tap again to start over',
+  freshStartHint: 'A verified copy is kept. The original will then be erased from this device.',
+  resetPending: 'Still reading saved data. Nothing is erased until the copy is verified.',
 };
 
 const ar: Dict = {
@@ -357,6 +369,12 @@ const ar: Dict = {
   errorTitle: 'حدث خطأ',
   errorText: 'تعذّر على 92\'MBA عرض هذه الشاشة. المستندات المدمجة ما زالت على هذا الجهاز.',
   storageUnreadable: 'تعذّرت قراءة البيانات المحفوظة على هذا الجهاز. احتفظنا بنسخة خام ولم يُستبدل شيء.',
+  storageCopyFailed: 'تعذّر النسخ، لم يُغيَّر شيء',
+  resetRefused: 'رُفضت إعادة التعيين: النسخة الاحتياطية غير مؤكدة. البيانات الأصلية لم تتغير.',
+  freshStart: 'البدء من جديد',
+  confirmFreshStart: 'اضغط مرة أخرى للبدء من جديد',
+  freshStartHint: 'نسخة مؤكدة محفوظة. سيُحذف الأصل بعد ذلك من هذا الجهاز.',
+  resetPending: 'ما زالت قراءة البيانات جارية. لا يُحذف شيء قبل التحقق من النسخة.',
 };
 
 export const dictionaries: Record<Lang, Dict> = { fr, en, ar };
