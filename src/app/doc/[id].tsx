@@ -4,11 +4,14 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, ScrollViewInstance, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Highlight } from '../../components/Highlight';
+import { ReadingControls } from '../../components/ReadingControls';
 import { Badge, Button, EmptyState, Muted, Row, Slider } from '../../components/ui';
 import { useI18n } from '../../lib/i18n';
-import { CATEGORY_LABELS, findDoc, LICENSE_BADGE, normalize, paginate } from '../../lib/library';
+import { useAppFonts } from '../../lib/fonts';
+import { CATEGORY_LABELS, findDoc, licenseBadgeLabel, licenseStatusCodeOf, normalize, paginate } from '../../lib/library';
 import { appStore, setProgress, toggleBookmark } from '../../lib/store';
-import { colors, readerThemes, ReaderTheme } from '../../theme';
+import { firstString, safePageIndex, sanitizeSearchQuery } from '../../lib/textGuard';
+import { colors, readingColumnWidth, readingPadding, readerThemes, snapFontScale, snapLineHeight, ReaderTheme } from '../../theme';
 
 const THEME_ORDER: ReaderTheme[] = ['light', 'sepia', 'dark'];
 
@@ -16,20 +19,30 @@ export default function Reader() {
   const params = useLocalSearchParams<{ id: string; page?: string; q?: string }>();
   const { t, lang } = useI18n();
   const s = appStore.useStore();
-  const doc = useMemo(() => findDoc(params.id, s.userDocs), [params.id, s.userDocs]);
+  const doc = useMemo(() => findDoc(firstString(params.id) || undefined, s.userDocs), [params.id, s.userDocs]);
   const pages = useMemo(() => (doc ? paginate(doc) : []), [doc]);
   const initial = (() => {
-    const fromParam = params.page !== undefined ? Number(params.page) : NaN;
-    if (Number.isFinite(fromParam)) return fromParam;
+    const fromParam = safePageIndex(params.page);
+    if (fromParam !== null) return fromParam;
     return doc ? (s.progress[doc.id]?.page ?? 0) : 0;
   })();
   const [page, setPage] = useState(Math.max(0, Math.min(initial, Math.max(0, pages.length - 1))));
   const [dragPage, setDragPage] = useState<number | null>(null);
-  const [panel, setPanel] = useState<'none' | 'info' | 'bookmarks' | 'find'>('none');
-  const [find, setFind] = useState(typeof params.q === 'string' && params.q !== 'undefined' ? params.q : '');
+  const [panel, setPanel] = useState<'none' | 'info' | 'bookmarks' | 'find' | 'display'>('none');
+  const [find, setFind] = useState(sanitizeSearchQuery(params.q));
   const scrollRef = useRef<ScrollViewInstance>(null);
+  const fonts = useAppFonts();
   const theme = readerThemes[s.readerTheme];
   const rtl = doc?.lang === 'ar';
+  const fontScale = snapFontScale(s.fontScale);
+  const fontSize = 18 * fontScale;
+  const lineRatio = snapLineHeight(s.lineHeight);
+  const family = rtl
+    ? (fonts.arabic ?? (Platform.OS === 'ios' ? 'Geeza Pro' : 'serif'))
+    : (fonts.serif ?? (Platform.OS === 'web' ? 'Georgia, "Iowan Old Style", Palatino, serif' : Platform.OS === 'ios' ? 'Georgia' : 'serif'));
+  const letterSpacing = s.dyslexia ? Math.round(fontSize * 0.04 * 10) / 10 : 0;
+  const column = readingColumnWidth(fontSize, s.readerMargin);
+  const pad = readingPadding(s.readerMargin);
 
   useEffect(() => {
     if (!doc) return;
@@ -48,11 +61,12 @@ export default function Reader() {
     return () => window.removeEventListener('keydown', onKey);
   }, [pages.length, rtl]);
 
+  const findQuery = sanitizeSearchQuery(find);
   const findHits = useMemo(() => {
-    const q = normalize(find.trim());
+    const q = normalize(findQuery);
     if (q.length < 2) return [];
     return pages.map((pg, i) => ({ i, n: pg.filter((p) => normalize(p).includes(q)).length })).filter((x) => x.n > 0);
-  }, [find, pages]);
+  }, [findQuery, pages]);
 
   if (!doc) {
     return (
@@ -71,11 +85,10 @@ export default function Reader() {
   const isMarked = marks.includes(page);
   const shown = dragPage ?? page;
   const pct = Math.round(((page + 1) / pages.length) * 100);
-  const fontSize = 18 * s.fontScale;
   const go = (p: number) => setPage(Math.max(0, Math.min(pages.length - 1, p)));
   const iconBtn = (name: keyof typeof Ionicons.glyphMap, label: string, onPress: () => void, active?: boolean) => (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={[styles.iconBtn, active && { backgroundColor: colors.accent + '33' }]} hitSlop={4}>
-      <Ionicons name={name} size={20} color={active ? colors.accent : theme.text} />
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={[styles.iconBtn, active && { backgroundColor: theme.accent + '33' }]} hitSlop={4}>
+      <Ionicons name={name} size={20} color={active ? theme.accent : theme.text} />
     </Pressable>
   );
 
@@ -93,10 +106,10 @@ export default function Reader() {
         {iconBtn('information-circle-outline', t('info'), () => setPanel(panel === 'info' ? 'none' : 'info'), panel === 'info')}
       </View>
       <View style={[styles.tools, { backgroundColor: theme.bar }]}>
-        <Pressable accessibilityLabel={t('textSmaller')} style={styles.tool} onPress={() => appStore.set({ fontScale: Math.max(0.8, +(s.fontScale - 0.1).toFixed(2)) })}>
+        <Pressable accessibilityLabel={t('textSmaller')} style={styles.tool} onPress={() => appStore.set({ fontScale: snapFontScale(fontScale - 0.1) })}>
           <Text style={{ color: theme.text, fontWeight: '700', fontSize: 14 }}>A-</Text>
         </Pressable>
-        <Pressable accessibilityLabel={t('textLarger')} style={styles.tool} onPress={() => appStore.set({ fontScale: Math.min(1.8, +(s.fontScale + 0.1).toFixed(2)) })}>
+        <Pressable accessibilityLabel={t('textLarger')} style={styles.tool} onPress={() => appStore.set({ fontScale: snapFontScale(fontScale + 0.1) })}>
           <Text style={{ color: theme.text, fontWeight: '700', fontSize: 18 }}>A+</Text>
         </Pressable>
         <Pressable
@@ -107,10 +120,13 @@ export default function Reader() {
           <Ionicons name={s.readerTheme === 'dark' ? 'moon' : s.readerTheme === 'sepia' ? 'cafe-outline' : 'sunny-outline'} size={18} color={theme.text} />
         </Pressable>
         <Pressable accessibilityLabel={t('findInDoc')} style={styles.tool} onPress={() => setPanel(panel === 'find' ? 'none' : 'find')}>
-          <Ionicons name="search" size={18} color={panel === 'find' ? colors.accent : theme.text} />
+          <Ionicons name="search" size={18} color={panel === 'find' ? theme.accent : theme.text} />
+        </Pressable>
+        <Pressable accessibilityLabel={t('display')} style={styles.tool} onPress={() => setPanel(panel === 'display' ? 'none' : 'display')}>
+          <Ionicons name="text" size={18} color={panel === 'display' ? theme.accent : theme.text} />
         </Pressable>
         <Pressable accessibilityLabel={t('bookmarks')} style={styles.tool} onPress={() => setPanel(panel === 'bookmarks' ? 'none' : 'bookmarks')}>
-          <Ionicons name="list" size={18} color={panel === 'bookmarks' ? colors.accent : theme.text} />
+          <Ionicons name="list" size={18} color={panel === 'bookmarks' ? theme.accent : theme.text} />
           {marks.length ? <Text style={{ color: theme.muted, fontSize: 11 }}>{marks.length}</Text> : null}
         </Pressable>
       </View>
@@ -119,26 +135,33 @@ export default function Reader() {
         <View style={[styles.panel, { backgroundColor: theme.bar, borderColor: theme.muted + '44' }]}>
           {panel === 'info' ? (
             <View style={{ gap: 6 }}>
-              <Badge label={LICENSE_BADGE[doc.license.kind][lang]} tone={doc.license.kind === 'placeholder' ? 'warn' : doc.license.kind === 'public-domain' ? 'ok' : 'info'} />
+              <Badge
+                label={licenseBadgeLabel(doc.license.kind, lang)}
+                tone={doc.license.kind === 'placeholder' ? 'warn' : doc.license.kind === 'public-domain' ? 'ok' : 'info'}
+              />
               <Meta k={t('title')} v={doc.title} c={theme.text} />
               <Meta k={t('author')} v={`${doc.author}${doc.year ? ` (${doc.year})` : ''}`} c={theme.text} />
+              <Meta k={t('date')} v={doc.license.date || doc.year || t('dateUnknown')} c={theme.text} />
               <Meta k={t('language')} v={doc.lang.toUpperCase()} c={theme.text} />
               <Meta k={t('category')} v={CATEGORY_LABELS[doc.category][lang]} c={theme.text} />
+              <Meta k={t('licenseStatus')} v={t(STATUS_KEY[licenseStatusCodeOf(doc)])} c={theme.text} />
               <Meta k={t('license')} v={doc.license.label} c={theme.text} />
               {doc.license.source ? <Meta k={t('source')} v={doc.license.source} c={theme.text} /> : null}
+              {doc.addedAt && formatAdded(doc.addedAt, lang) ? <Meta k={t('addedOn')} v={formatAdded(doc.addedAt, lang)} c={theme.text} /> : null}
               {doc.license.url ? (
-                <Text style={{ color: colors.accent, textDecorationLine: 'underline' }} onPress={() => Linking.openURL(doc.license.url!)}>
+                <Text style={{ color: theme.link, textDecorationLine: 'underline' }} onPress={() => Linking.openURL(doc.license.url!)}>
                   {doc.license.url}
                 </Text>
               ) : null}
+              {doc.license.gutenberg === 'stripped' ? <Text style={{ color: theme.muted, lineHeight: 20 }}>{t('gutenbergTodo')}</Text> : null}
               {doc.note ? <Text style={{ color: theme.muted, fontStyle: 'italic' }}>{doc.note}</Text> : null}
             </View>
           ) : panel === 'bookmarks' ? (
             marks.length ? (
               <Row style={{ flexWrap: 'wrap' }}>
                 {marks.map((m) => (
-                  <Pressable key={m} onPress={() => { go(m); setPanel('none'); }} style={[styles.pill, { borderColor: colors.accent }]}>
-                    <Ionicons name="bookmark" size={12} color={colors.accent} />
+                  <Pressable key={m} onPress={() => { go(m); setPanel('none'); }} style={[styles.pill, { borderColor: theme.accent }]}>
+                    <Ionicons name="bookmark" size={12} color={theme.accent} />
                     <Text style={{ color: theme.text }}>{t('page', { p: m + 1, n: pages.length })}</Text>
                   </Pressable>
                 ))}
@@ -146,6 +169,8 @@ export default function Reader() {
             ) : (
               <Text style={{ color: theme.muted }}>{t('noBookmarks')}</Text>
             )
+          ) : panel === 'display' ? (
+            <ReadingControls color={theme.text} muted={theme.muted} />
           ) : (
             <View style={{ gap: 8 }}>
               <TextInput
@@ -160,10 +185,8 @@ export default function Reader() {
                 findHits.length ? (
                   <Row style={{ flexWrap: 'wrap' }}>
                     {findHits.map((h) => (
-                      <Pressable key={h.i} onPress={() => go(h.i)} style={[styles.pill, { borderColor: h.i === page ? colors.accent : theme.muted + '66' }]}>
-                        <Text style={{ color: theme.text }}>
-                          p.{h.i + 1} ({h.n})
-                        </Text>
+                      <Pressable key={h.i} onPress={() => go(h.i)} style={[styles.pill, { borderColor: h.i === page ? theme.accent : theme.muted + '66' }]}>
+                        <Text style={{ color: theme.text }}>{t('page', { p: h.i + 1, n: pages.length })} ({h.n})</Text>
                       </Pressable>
                     ))}
                   </Row>
@@ -176,19 +199,21 @@ export default function Reader() {
         </View>
       ) : null}
 
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.pageWrap}>
-        <View style={{ width: '100%', maxWidth: 680, gap: fontSize * 0.9, direction: rtl ? 'rtl' : 'ltr' }}>
-          {page === 0 && doc.license.kind === 'placeholder' ? <Badge label={LICENSE_BADGE.placeholder[lang]} tone="warn" /> : null}
+      <ScrollView ref={scrollRef} contentContainerStyle={[styles.pageWrap, { paddingHorizontal: pad }]}>
+        <View style={{ width: '100%', maxWidth: column, gap: fontSize * 0.85, direction: rtl ? 'rtl' : 'ltr' }}>
+          {page === 0 && doc.license.kind === 'placeholder' ? <Badge label={licenseBadgeLabel('placeholder', lang)} tone="warn" /> : null}
           {pages[page]?.map((para, i) => (
             <Highlight
               key={`${page}-${i}`}
               text={para}
-              query={find}
+              query={findQuery}
+              accessibilityLanguage={doc.lang}
               style={{
                 fontSize,
-                lineHeight: fontSize * (rtl ? 1.8 : 1.6),
+                lineHeight: fontSize * lineRatio,
+                letterSpacing,
                 color: theme.text,
-                fontFamily: Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia, "Times New Roman", serif' }),
+                fontFamily: family,
                 textAlign: rtl ? 'right' : 'left',
                 writingDirection: rtl ? 'rtl' : 'ltr',
               }}
@@ -196,7 +221,7 @@ export default function Reader() {
           ))}
           {page === pages.length - 1 ? (
             <View style={{ alignItems: 'center', paddingVertical: 24, gap: 6 }}>
-              <Ionicons name="checkmark-done-circle" size={36} color={colors.accent} />
+              <Ionicons name="checkmark-done-circle" size={36} color={theme.accent} />
               <Text style={{ color: theme.muted }}>{t('finished')}</Text>
             </View>
           ) : null}
@@ -218,13 +243,47 @@ export default function Reader() {
           }}
         />
         <Row style={{ justifyContent: 'space-between' }}>
-          <Button small variant="ghost" label={t('previous')} disabled={page === 0} onPress={() => go(page - 1)} />
+          <Button
+            small
+            variant="ghost"
+            label={t('previous')}
+            disabled={page === 0}
+            onPress={() => go(page - 1)}
+            labelColor={theme.text}
+            borderColor={theme.muted}
+          />
           <Muted style={{ color: theme.muted }}>{t('page', { p: shown + 1, n: pages.length })}</Muted>
-          <Button small label={t('next')} disabled={page >= pages.length - 1} onPress={() => go(page + 1)} />
+          <Button
+            small
+            label={t('next')}
+            disabled={page >= pages.length - 1}
+            onPress={() => go(page + 1)}
+            labelColor={s.readerTheme === 'dark' ? colors.primary : colors.onPrimary}
+            backgroundColor={s.readerTheme === 'dark' ? colors.accent : colors.primary}
+          />
         </Row>
       </View>
     </SafeAreaView>
   );
+}
+
+const STATUS_KEY = {
+  'needs-review': 'statusNeedsReview',
+  'public-domain-claimed': 'statusPublicDomain',
+  placeholder: 'statusPlaceholder',
+  owned: 'statusOwned',
+  open: 'statusOpen',
+} as const;
+
+function formatAdded(iso: string, lang: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const locale = lang === 'ar' ? 'ar' : lang === 'en' ? 'en-GB' : 'fr-CH';
+  try {
+    return new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
+  } catch {
+    return '';
+  }
 }
 
 function Meta({ k, v, c }: { k: string; v: string; c: string }) {

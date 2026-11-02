@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
+  AccessibilityInfo,
   Animated,
   GestureResponderEvent,
   LayoutChangeEvent,
@@ -15,7 +15,9 @@ import {
   ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, radius, space } from '../theme';
+import { useI18n } from '../lib/i18n';
+import { uiFontStyle, useAppFonts } from '../lib/fonts';
+import { badgeTones, colors, radius, space } from '../theme';
 
 export function Screen({
   children,
@@ -52,11 +54,11 @@ export function Screen({
 type TProps = TextProps & { color?: string; center?: boolean };
 const mk = (base: TextStyle) =>
   function T({ style, color, center, ...p }: TProps) {
+    const { dir } = useI18n();
+    const fonts = useAppFonts();
+    const face = uiFontStyle(base.fontWeight, dir === 'rtl', fonts);
     return (
-      <Text
-        {...p}
-        style={[base, color ? { color } : null, center ? { textAlign: 'center' } : null, style]}
-      />
+      <Text {...p} style={[base, face, color ? { color } : null, center ? { textAlign: 'center' } : null, style]} />
     );
   };
 export const H1 = mk({ fontSize: 28, fontWeight: '800', color: colors.text, letterSpacing: -0.5 });
@@ -99,6 +101,9 @@ export function Button({
   disabled,
   style,
   small,
+  labelColor,
+  backgroundColor,
+  borderColor,
 }: {
   label: string;
   onPress?: () => void;
@@ -107,16 +112,17 @@ export function Button({
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   small?: boolean;
+  labelColor?: string;
+  backgroundColor?: string;
+  borderColor?: string;
 }) {
+  const { dir } = useI18n();
+  const fonts = useAppFonts();
+  const face = uiFontStyle('700', dir === 'rtl', fonts);
   const bg =
-    variant === 'primary'
-      ? colors.primary
-      : variant === 'secondary'
-        ? colors.primarySoft
-        : variant === 'danger'
-          ? colors.danger
-          : 'transparent';
-  const fg = variant === 'primary' || variant === 'danger' ? colors.onPrimary : colors.primary;
+    backgroundColor ??
+    (variant === 'primary' ? colors.primary : variant === 'secondary' ? colors.primarySoft : variant === 'danger' ? colors.danger : 'transparent');
+  const fg = labelColor ?? (variant === 'primary' || variant === 'danger' ? colors.onPrimary : colors.primary);
   return (
     <Pressable
       accessibilityRole="button"
@@ -127,12 +133,12 @@ export function Button({
         styles.button,
         small && { minHeight: 36, paddingHorizontal: space.md },
         { backgroundColor: bg, opacity: disabled ? 0.45 : pressed ? 0.85 : 1 },
-        variant === 'ghost' && { borderWidth: 1, borderColor: colors.border },
+        variant === 'ghost' && { borderWidth: 1, borderColor: borderColor ?? colors.border },
         style,
       ]}
     >
       {icon}
-      <Text style={[styles.buttonText, { color: fg }, small && { fontSize: 13 }]}>{label}</Text>
+      <Text style={[styles.buttonText, face, { color: fg }, small && { fontSize: 13 }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -148,6 +154,9 @@ export function Chip({
   onPress?: () => void;
   onLongPress?: () => void;
 }) {
+  const { dir } = useI18n();
+  const fonts = useAppFonts();
+  const face = uiFontStyle('600', dir === 'rtl', fonts);
   return (
     <Pressable
       accessibilityRole="button"
@@ -156,22 +165,21 @@ export function Chip({
       onLongPress={onLongPress}
       style={[styles.chip, active && { backgroundColor: colors.primary, borderColor: colors.primary }]}
     >
-      <Text style={[styles.chipText, active && { color: colors.onPrimary }]}>{label}</Text>
+      <Text style={[styles.chipText, face, active && { color: colors.onPrimary }]}>{label}</Text>
     </Pressable>
   );
 }
 
 export function Badge({ label, tone = 'neutral' }: { label: string; tone?: 'neutral' | 'warn' | 'ok' | 'info' }) {
-  const map = {
-    neutral: [colors.surfaceAlt, colors.muted],
-    warn: ['#FFF4DB', '#8A5A00'],
-    ok: ['#E3F6EA', '#1D6B3A'],
-    info: [colors.primarySoft, colors.primary],
-  } as const;
-  const [bg, fg] = map[tone];
+  const { dir } = useI18n();
+  const fonts = useAppFonts();
+  const face = uiFontStyle('700', dir === 'rtl', fonts);
+  const toneStyle = badgeTones[tone];
+  const bg = toneStyle.bg;
+  const fg = toneStyle.fg;
   return (
     <View style={[styles.badge, { backgroundColor: bg }]}>
-      <Text style={[styles.badgeText, { color: fg }]}>{label}</Text>
+      <Text style={[styles.badgeText, face, { color: fg }]}>{label}</Text>
     </View>
   );
 }
@@ -259,7 +267,22 @@ export function Slider({
 
 export function Skeleton({ height = 18, width = '100%', style }: { height?: number; width?: number | `${number}%`; style?: StyleProp<ViewStyle> }) {
   const a = useRef(new Animated.Value(0.4)).current;
+  const [reduce, setReduce] = useState(false);
   useEffect(() => {
+    let alive = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((value) => {
+        if (alive) setReduce(value);
+      })
+      .catch(() => undefined);
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduce);
+    return () => {
+      alive = false;
+      sub.remove();
+    };
+  }, []);
+  useEffect(() => {
+    if (reduce) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(a, { toValue: 1, duration: 700, useNativeDriver: false }),
@@ -268,7 +291,8 @@ export function Skeleton({ height = 18, width = '100%', style }: { height?: numb
     );
     loop.start();
     return () => loop.stop();
-  }, [a]);
+  }, [a, reduce]);
+  if (reduce) return <View style={[{ height, width, borderRadius: 8, backgroundColor: colors.surfaceAlt, opacity: 0.85 }, style]} />;
   return <Animated.View style={[{ height, width, borderRadius: 8, backgroundColor: colors.surfaceAlt, opacity: a }, style]} />;
 }
 
@@ -291,11 +315,30 @@ export function Spacer({ h = space.md }: { h?: number }) {
   return <View style={{ height: h }} />;
 }
 
-export function BootScreen({ label }: { label: string }) {
+/** Attente courte : squelettes, jamais le mot « Loading » ni un écran blanc. */
+export function BootSkeleton() {
   return (
-    <View style={[styles.screen, { alignItems: 'center', justifyContent: 'center', gap: 12 }]}>
-      <ActivityIndicator color={colors.primary} />
-      <Muted>{label}</Muted>
+    <View accessibilityLabel="92'MBA" style={[styles.screen, { padding: space.xl, justifyContent: 'center' }]}>
+      <View style={{ width: '100%', maxWidth: 760, alignSelf: 'center', gap: space.lg }}>
+        <Text style={{ color: colors.primary, fontSize: 28, fontWeight: '800' }}>92'MBA</Text>
+        <Skeleton height={92} />
+        <Skeleton height={68} />
+        <Skeleton height={68} />
+      </View>
+    </View>
+  );
+}
+
+export function BootFallback({ onRetry, onOffline }: { onRetry: () => void; onOffline: () => void }) {
+  const { t, dir } = useI18n();
+  return (
+    <View style={[styles.screen, { padding: space.xl, justifyContent: 'center', direction: dir }]}>
+      <View style={{ width: '100%', maxWidth: 520, alignSelf: 'center', gap: space.md }}>
+        <H2>{t('bootFallbackTitle')}</H2>
+        <Body>{t('bootFallbackText')}</Body>
+        <Button label={t('bootRetry')} onPress={onRetry} />
+        <Button label={t('bootOffline')} variant="secondary" onPress={onOffline} />
+      </View>
     </View>
   );
 }

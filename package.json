@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.3.0",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -31,6 +32,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
+    "test": "tsx src/lib/passe1.check.ts && node scripts/passe1-scan.mjs",
     "export:web": "expo export -p web && node scripts/pwa.mjs",
     "icons": "python3 scripts/make-icons.py"
   },

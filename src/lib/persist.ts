@@ -1,62 +1,149 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 
+/** Au-delà, l'écran de repli propose Réessayer et Continuer hors ligne. Jamais un Loading infini. */
+export const BOOT_TIMEOUT_MS = 8000;
+
+export type KeyValueStorage = {
+  getItem(key: string): Promise<string | null>;
+  setItem(key: string, value: string): Promise<void>;
+  removeItem(key: string): Promise<void>;
+};
+
+export type PersistOptions<T> = {
+  merge?: (stored: Partial<T>) => T;
+  mergeLate?: (current: T, stored: Partial<T>) => T;
+  /** Par défaut AsyncStorage. Les tests injectent un stockage en mémoire. */
+  storage?: KeyValueStorage;
+  /** Délai avant écriture. 150 ms dans l'app. */
+  saveDelayMs?: number;
+};
+
 /**
- * Petit store persistant (AsyncStorage → localStorage sur le web).
- * L'hydratation a un timeout : l'app ne reste jamais bloquée sur « Loading ».
+ * Store persistant (AsyncStorage, localStorage sur le web).
+ *
+ * Aucune écriture tant que getItem n'a pas réussi. Sinon « Continuer hors ligne »
+ * ou un timeout (sur main : course à 2,5 s qui résout `null`) laisse l'état vide
+ * en mémoire, et le setItem suivant écrase la sauvegarde réelle.
+ * Une lecture ratée ne compte pas comme un succès : on n'écrit pas non plus.
  */
-export function createPersistedStore<T extends object>(key: string, initial: T, timeoutMs = 2500) {
+export function createPersistedStore<T extends object>(key: string, initial: T, options: PersistOptions<T> = {}) {
+  const storage = options.storage ?? AsyncStorage;
+  const saveDelayMs = options.saveDelayMs ?? 150;
   let state: T = initial;
   let hydrated = false;
+  let mutated = false;
+  let storageReady = false;
+  let pendingWipe = false;
+  let loadGen = 0;
   const listeners = new Set<() => void>();
-  const emit = () => listeners.forEach((l) => l());
+  const emit = () => listeners.forEach((listener) => listener());
 
-  const hydration = (async () => {
+  const apply = (raw: string | null) => {
+    if (!raw) return;
+    let parsed: Partial<T>;
     try {
-      const raw = await Promise.race<string | null>([
-        AsyncStorage.getItem(key),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
-      ]);
-      if (raw) state = { ...initial, ...(JSON.parse(raw) as Partial<T>) };
+      parsed = JSON.parse(raw) as Partial<T>;
     } catch {
-      // Données locales corrompues : on repart des valeurs par défaut.
+      return;
     }
+    if (mutated && options.mergeLate) state = options.mergeLate(state, parsed);
+    else if (options.merge) state = options.merge(parsed);
+    else state = { ...initial, ...parsed };
+  };
+
+  const load = async (gen: number) => {
+    let raw: string | null;
+    try {
+      raw = await storage.getItem(key);
+    } catch {
+      if (gen !== loadGen) return;
+      if (pendingWipe) {
+        pendingWipe = false;
+        storageReady = true;
+        hydrated = true;
+        storage.removeItem(key).catch(() => undefined);
+      }
+      emit();
+      return;
+    }
+    if (gen !== loadGen) return;
+    if (pendingWipe) {
+      pendingWipe = false;
+      state = initial;
+      storageReady = true;
+      hydrated = true;
+      emit();
+      storage.removeItem(key).catch(() => undefined);
+      return;
+    }
+    apply(raw);
+    storageReady = true;
     hydrated = true;
     emit();
-  })();
+    if (mutated) persist();
+  };
+
+  const start = () => {
+    loadGen += 1;
+    storageReady = false;
+    void load(loadGen);
+  };
+
+  start();
 
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
   const persist = () => {
+    if (!storageReady || pendingWipe) return;
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      AsyncStorage.setItem(key, JSON.stringify(state)).catch(() => undefined);
-    }, 150);
+      if (!storageReady || pendingWipe) return;
+      storage.setItem(key, JSON.stringify(state)).catch(() => undefined);
+    }, saveDelayMs);
   };
 
-  const subscribe = (l: () => void) => {
-    listeners.add(l);
-    return () => listeners.delete(l);
+  const subscribe = (listener: () => void) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
   };
 
   return {
     get: () => state,
-    set(patch: Partial<T> | ((s: T) => Partial<T>)) {
-      const p = typeof patch === 'function' ? patch(state) : patch;
-      state = { ...state, ...p };
+    set(patch: Partial<T> | ((current: T) => Partial<T>)) {
+      const next = typeof patch === 'function' ? patch(state) : patch;
+      state = { ...state, ...next };
+      mutated = true;
       emit();
       persist();
     },
     reset() {
       state = initial;
+      mutated = true;
+      hydrated = true;
       emit();
-      AsyncStorage.removeItem(key).catch(() => undefined);
+      if (!storageReady) {
+        pendingWipe = true;
+        if (saveTimer) clearTimeout(saveTimer);
+        return;
+      }
+      loadGen += 1;
+      pendingWipe = false;
+      storage.removeItem(key).catch(() => undefined);
     },
-    hydration,
+    retryHydration() {
+      hydrated = false;
+      emit();
+      start();
+    },
+    continueOffline() {
+      hydrated = true;
+      emit();
+    },
     useStore(): T {
       return useSyncExternalStore(subscribe, () => state, () => state);
     },
     useHydrated(): boolean {
-      return useSyncExternalStore(subscribe, () => hydrated, () => hydrated);
+      return useSyncExternalStore(subscribe, () => hydrated, () => false);
     },
   };
 }
