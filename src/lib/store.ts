@@ -1,50 +1,66 @@
-import type { Lang } from '../i18n/strings';
-import type { ReaderTheme } from '../theme';
-import type { Doc } from './library';
-import { createPersistedStore } from './persist';
+import { createPersistedStore, BOOT_TIMEOUT_MS } from './persist';
+import { defaultAppState, mergeLate, mergeStored, readingPageToKeep, type AppState, type Progress } from './stateMerge';
+import { cleanHistory as cleanHistoryList, sanitizeSearchQuery } from './textGuard';
 
-export type Progress = { page: number; pages: number; updatedAt: number };
+export type { AppState, Progress };
+export { BOOT_TIMEOUT_MS };
 
-export type AppState = {
-  lang: Lang;
-  fontScale: number;
-  readerTheme: ReaderTheme;
-  progress: Record<string, Progress>;
-  bookmarks: Record<string, number[]>;
-  searchHistory: string[];
-  userDocs: Doc[];
-};
+/** Clé historique. Ne pas la renommer : la progression et les signets des appareils déjà installés en dépendent. */
+export const STORAGE_KEY = '92mba:v1';
 
-export const appStore = createPersistedStore<AppState>('92mba:v1', {
-  lang: 'fr',
-  fontScale: 1,
-  readerTheme: 'light',
-  progress: {},
-  bookmarks: {},
-  searchHistory: [],
-  userDocs: [],
+export const appStore = createPersistedStore<AppState>(STORAGE_KEY, defaultAppState(), {
+  merge: mergeStored,
+  mergeLate,
 });
 
 /** Ajoute une recherche à l'historique — jamais de valeur vide, « undefined » ou « null ». */
 export function pushSearchHistory(raw: unknown) {
-  if (typeof raw !== 'string') return;
-  const q = raw.trim();
-  if (q.length < 2 || q === 'undefined' || q === 'null') return;
+  const q = sanitizeSearchQuery(raw);
+  if (!q) return;
   appStore.set((s) => ({
-    searchHistory: [q, ...s.searchHistory.filter((h) => typeof h === 'string' && h.toLowerCase() !== q.toLowerCase())].slice(0, 12),
+    searchHistory: [q, ...s.searchHistory.filter((h) => h.toLowerCase() !== q.toLowerCase())].slice(0, 12),
   }));
 }
 
 export function cleanHistory(list: unknown): string[] {
-  if (!Array.isArray(list)) return [];
-  return list.filter((h): h is string => typeof h === 'string' && h.trim().length > 1 && h !== 'undefined' && h !== 'null');
+  return cleanHistoryList(list);
+}
+
+type ProgressWriter = {
+  isStorageReady(): boolean;
+  set(patch: Partial<AppState> | ((current: AppState) => Partial<AppState>)): void;
+};
+
+/** N'écrit pas tant que le cache n'est pas lu : un page 0 automatique ne doit pas naître avant. */
+export function recordProgress(store: ProgressWriter, id: string, page: number, pages: number) {
+  if (!id || !Number.isFinite(page) || !Number.isFinite(pages) || pages <= 0) return;
+  if (!store.isStorageReady()) return;
+  store.set((s) => {
+    const prev = s.progress[id];
+    if (prev && prev.page === page && prev.pages === pages) return {};
+    return { progress: { ...s.progress, [id]: { page, pages, updatedAt: Date.now() } } };
+  });
 }
 
 export function setProgress(id: string, page: number, pages: number) {
-  appStore.set((s) => ({ progress: { ...s.progress, [id]: { page, pages, updatedAt: Date.now() } } }));
+  recordProgress(appStore, id, page, pages);
+}
+
+/** Après la lecture : n'enregistre pas une page de session inférieure à la page déjà sauvée. */
+export function commitSessionProgress(
+  store: ProgressWriter & { get(): AppState },
+  id: string,
+  sessionPage: number,
+  pages: number,
+  userMoved: boolean,
+) {
+  const next = readingPageToKeep(store.get().progress[id]?.page, sessionPage, userMoved);
+  recordProgress(store, id, next, pages);
+  return next;
 }
 
 export function toggleBookmark(id: string, page: number) {
+  if (!id || !Number.isFinite(page)) return;
   appStore.set((s) => {
     const cur = s.bookmarks[id] ?? [];
     const next = cur.includes(page) ? cur.filter((p) => p !== page) : [...cur, page].sort((a, b) => a - b);

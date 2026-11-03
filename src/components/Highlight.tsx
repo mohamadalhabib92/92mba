@@ -1,22 +1,35 @@
 import React from 'react';
-import { Text, TextStyle, StyleProp } from 'react-native';
-import { colors } from '../theme';
+import { Text, TextStyle, StyleProp, TextProps } from 'react-native';
+import { highlightColors } from '../theme';
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-export function Highlight({ text, query, style, color }: { text: string; query?: string; style?: StyleProp<TextStyle>; color?: string }) {
+export function Highlight({
+  text,
+  query,
+  style,
+  color,
+  ...rest
+}: TextProps & { text: string; query?: string; style?: StyleProp<TextStyle>; color?: string }) {
   const q = (query ?? '').trim();
-  if (q.length < 2) return <Text style={style}>{text}</Text>;
+  const mark = highlightColors.yellow;
+  if (!text || q.length < 2 || q.toLowerCase() === 'undefined' || q.toLowerCase() === 'null') {
+    return (
+      <Text {...rest} style={style}>
+        {text}
+      </Text>
+    );
+  }
   const parts = text.split(new RegExp(`(${escape(q)})`, 'gi'));
   return (
-    <Text style={style}>
-      {parts.map((p, i) =>
-        p.toLowerCase() === q.toLowerCase() ? (
-          <Text key={i} style={{ backgroundColor: color ?? colors.highlight, color: '#1A1A1A', fontWeight: '700' }}>
-            {p}
+    <Text {...rest} style={style}>
+      {parts.map((part, i) =>
+        part.toLowerCase() === q.toLowerCase() ? (
+          <Text key={i} style={{ backgroundColor: color ?? mark.bg, color: mark.text, fontWeight: '700' }}>
+            {part}
           </Text>
         ) : (
-          <Text key={i}>{p}</Text>
+          <Text key={i}>{part}</Text>
         ),
       )}
     </Text>

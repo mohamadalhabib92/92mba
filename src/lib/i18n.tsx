@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo } from 'react';
 import { Platform } from 'react-native';
 import { dictionaries, Lang, RTL_LANGS } from '../i18n/strings';
 import { appStore } from './store';
+import { fillTemplate } from './textGuard';
 
 type Ctx = { lang: Lang; dir: 'ltr' | 'rtl'; t: (key: keyof (typeof dictionaries)['fr'], vars?: Record<string, string | number>) => string; setLang: (l: Lang) => void };
 const I18nContext = createContext<Ctx | null>(null);
@@ -20,11 +21,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       lang,
       dir,
       setLang: (l) => appStore.set({ lang: l }),
-      t: (key, vars) => {
-        let s: string = dictionaries[lang]?.[key] ?? dictionaries.fr[key] ?? String(key);
-        if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
-        return s;
-      },
+      t: (key, vars) => fillTemplate(dictionaries[lang]?.[key] ?? dictionaries.fr[key] ?? key, vars),
     }),
     [lang, dir],
   );

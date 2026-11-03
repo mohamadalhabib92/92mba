@@ -37,13 +37,13 @@ export default function Home() {
       {current ? (
         <Card onPress={() => router.push({ pathname: '/doc/[id]', params: { id: current.doc.id } })}>
           <Row>
-            <Ionicons name="book" size={22} color={colors.accent} />
+            <Ionicons name="book" size={22} color={colors.primary} />
             <H2 style={{ flex: 1 }} numberOfLines={2}>
               {current.doc.title}
             </H2>
           </Row>
           <Muted>{t('page', { p: current.p.page + 1, n: current.p.pages })}</Muted>
-          <ProgressBar value={(current.p.page + 1) / current.p.pages} color={colors.accent} height={8} />
+          <ProgressBar value={(current.p.page + 1) / Math.max(1, current.p.pages)} color={colors.primary} height={8} />
           <Button label={t('continueReading')} onPress={() => router.push({ pathname: '/doc/[id]', params: { id: current.doc.id } })} />
         </Card>
       ) : (

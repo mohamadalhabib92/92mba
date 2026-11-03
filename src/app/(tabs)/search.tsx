@@ -5,8 +5,9 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native
 import { Highlight } from '../../components/Highlight';
 import { Badge, Card, Chip, EmptyState, H1, H3, Muted, Row, Screen } from '../../components/ui';
 import { useI18n } from '../../lib/i18n';
-import { allDocs, CATEGORY_LABELS, Category, LICENSE_BADGE, searchDocs } from '../../lib/library';
+import { allDocs, CATEGORY_LABELS, Category, licenseBadgeLabel, searchDocs } from '../../lib/library';
 import { appStore, cleanHistory, pushSearchHistory } from '../../lib/store';
+import { sanitizeSearchQuery } from '../../lib/textGuard';
 import { useDebounced } from '../../lib/useDebounced';
 import { LANGS, Lang } from '../../i18n/strings';
 import { colors } from '../../theme';
@@ -17,7 +18,7 @@ export default function Search() {
   const [q, setQ] = useState('');
   const [docLang, setDocLang] = useState<Lang | 'all'>('all');
   const [cat, setCat] = useState<Category | 'all'>('all');
-  const dq = useDebounced(q, 250);
+  const dq = useDebounced(sanitizeSearchQuery(q), 250);
   const docs = useMemo(() => allDocs(s.userDocs), [s.userDocs]);
   const pool = useMemo(
     () => docs.filter((d) => (docLang === 'all' || d.lang === docLang) && (cat === 'all' || d.category === cat)),
@@ -96,7 +97,7 @@ export default function Search() {
             <Card key={h.doc.id} onPress={() => open(h.doc.id, h.matches[0]?.page ?? 0)}>
               <Highlight text={h.doc.title} query={dq} style={styles.title} />
               <Row gap={6}>
-                <Badge label={LICENSE_BADGE[h.doc.license.kind][lang]} tone={h.doc.license.kind === 'placeholder' ? 'warn' : 'info'} />
+                <Badge label={licenseBadgeLabel(h.doc.license.kind, lang)} tone={h.doc.license.kind === 'placeholder' ? 'warn' : 'info'} />
                 <Muted>{h.doc.author}</Muted>
               </Row>
               {h.matches.map((m, i) => (

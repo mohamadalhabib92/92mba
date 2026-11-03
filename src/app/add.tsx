@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { Platform, StyleSheet, TextInput } from 'react-native';
 import { Badge, Body, Button, Card, Chip, H1, H3, Muted, Row, Screen } from '../components/ui';
 import { useI18n } from '../lib/i18n';
-import { Category, CATEGORY_LABELS, Doc, LicenseKind } from '../lib/library';
+import { Category, CATEGORY_LABELS, Doc, LicenseKind, LicenseStatusCode } from '../lib/library';
 import { appStore } from '../lib/store';
 import { LANGS, Lang } from '../i18n/strings';
 import { colors } from '../theme';
@@ -49,16 +49,24 @@ export default function AddDoc() {
       .filter(Boolean);
     if (!title.trim() || paragraphs.length === 0) return setError(t('required'));
     const labels = { owned: t('licOwned'), 'public-domain': t('licPD'), open: t('licOpen') };
+    const statusCode: LicenseStatusCode = kind === 'public-domain' ? 'public-domain-claimed' : kind === 'open' ? 'open' : 'owned';
     const doc: Doc = {
       id: `user-${Date.now().toString(36)}`,
       title: title.trim(),
       author: author.trim() || '—',
       lang: docLang,
       category,
-      license: { kind, label: details.trim() ? `${labels[kind]} — ${details.trim()}` : labels[kind], source: details.trim() || undefined },
+      license: {
+        kind,
+        label: details.trim() ? `${labels[kind]} — ${details.trim()}` : labels[kind],
+        source: details.trim() || undefined,
+        statusCode,
+        date: 'à valider',
+      },
       summary: paragraphs[0].slice(0, 160),
       paragraphs,
       userAdded: true,
+      addedAt: new Date().toISOString(),
     };
     appStore.set((s) => ({ userDocs: [doc, ...s.userDocs] }));
     router.replace({ pathname: '/doc/[id]', params: { id: doc.id } });
@@ -72,7 +80,7 @@ export default function AddDoc() {
       </Row>
       <Card style={{ backgroundColor: '#FFF6DC' }}>
         <Row>
-          <Ionicons name="shield-checkmark-outline" size={18} color={colors.accent} />
+          <Ionicons name="shield-checkmark-outline" size={18} color={colors.accentInk} />
           <Body style={{ flex: 1 }}>{t('rightsNotice')}</Body>
         </Row>
       </Card>

@@ -1,15 +1,25 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Body, Button, Card, Chip, H1, H3, Muted, Row, Screen } from '../../components/ui';
+import { Linking } from 'react-native';
+import { ReadingControls } from '../../components/ReadingControls';
+import { Badge, Body, Button, Card, Chip, H1, H3, Muted, Row, Screen } from '../../components/ui';
 import { useI18n } from '../../lib/i18n';
+import { FEATURE_AI } from '../../lib/features';
+import { PRIVACY_URL, SUPPORT_URL, supportEmail } from '../../lib/links';
 import { appStore } from '../../lib/store';
 import { LANGS } from '../../i18n/strings';
-import type { ReaderTheme } from '../../theme';
+import { colors, type ReaderTheme } from '../../theme';
 
 export default function Settings() {
   const { t, lang, setLang, dir } = useI18n();
   const s = appStore.useStore();
+  const warning = appStore.useStorageWarning();
+  const copyVerified = appStore.useCopyVerified();
+  const resetResult = appStore.useResetResult();
   const [confirm, setConfirm] = useState(false);
-  const [done, setDone] = useState(false);
+  const resetBlocked = warning === 'copy-failed' || ((warning === 'unreadable' || warning === 'delete-failed') && !copyVerified);
+  const canStartFresh = copyVerified && (warning === 'unreadable' || warning === 'delete-failed');
+  const deleteFailed = warning === 'delete-failed' || resetResult === 'delete-failed';
   const themes: { k: ReaderTheme; l: string }[] = [
     { k: 'light', l: t('themeLight') },
     { k: 'sepia', l: t('themeSepia') },
@@ -33,34 +43,65 @@ export default function Settings() {
             <Chip key={th.k} label={th.l} active={s.readerTheme === th.k} onPress={() => appStore.set({ readerTheme: th.k })} />
           ))}
         </Row>
-        <Row>
-          <Button small variant="secondary" label="A-" onPress={() => appStore.set({ fontScale: Math.max(0.8, +(s.fontScale - 0.1).toFixed(2)) })} />
-          <Muted>{Math.round(s.fontScale * 100)} %</Muted>
-          <Button small variant="secondary" label="A+" onPress={() => appStore.set({ fontScale: Math.min(1.8, +(s.fontScale + 0.1).toFixed(2)) })} />
-        </Row>
+        <ReadingControls color={colors.text} muted={colors.muted} />
       </Card>
       <Card>
         <H3>{t('aboutContent')}</H3>
         <Body>{t('aboutContentText')}</Body>
+        <Button
+          variant="ghost"
+          label={t('privacy')}
+          icon={<Ionicons name="shield-checkmark-outline" size={16} color={colors.primary} />}
+          onPress={() => Linking.openURL(PRIVACY_URL).catch(() => undefined)}
+        />
+        <Button
+          variant="ghost"
+          label={t('support')}
+          icon={<Ionicons name="help-circle-outline" size={16} color={colors.primary} />}
+          onPress={() => Linking.openURL(supportEmail() ? `mailto:${supportEmail()}` : SUPPORT_URL).catch(() => undefined)}
+        />
       </Card>
       <Card>
         <H3>{t('phase2')}</H3>
+        {!FEATURE_AI ? <Badge label={t('optionalUnavailable')} tone="warn" /> : null}
         <Body>{t('phase2Text')}</Body>
       </Card>
       <Card>
         <H3>{t('dataLocal')}</H3>
         <Body>{t('dataLocalText')}</Body>
-        <Button
-          variant={confirm ? 'danger' : 'ghost'}
-          label={confirm ? t('confirmReset') : t('resetData')}
-          onPress={() => {
-            if (!confirm) return setConfirm(true);
-            appStore.reset();
-            setConfirm(false);
-            setDone(true);
-          }}
-        />
-        {done ? <Muted>{t('resetDone')}</Muted> : null}
+        {deleteFailed ? <Body>{t('resetDeleteFailed')}</Body> : null}
+        {resetBlocked ? (
+          <>
+            <Body>{t('storageCopyFailed')}</Body>
+            <Body>{t('resetRefused')}</Body>
+          </>
+        ) : canStartFresh ? (
+          <>
+            <Body>{t('freshStartHint')}</Body>
+            <Button
+              variant={confirm ? 'danger' : 'ghost'}
+              label={confirm ? t('confirmFreshStart') : t('freshStart')}
+              onPress={() => {
+                if (!confirm) return setConfirm(true);
+                appStore.reset();
+                setConfirm(false);
+              }}
+            />
+          </>
+        ) : (
+          <Button
+            variant={confirm ? 'danger' : 'ghost'}
+            label={confirm ? t('confirmReset') : t('resetData')}
+            onPress={() => {
+              if (!confirm) return setConfirm(true);
+              appStore.reset();
+              setConfirm(false);
+            }}
+          />
+        )}
+        {resetResult === 'pending' ? <Muted>{t('resetPending')}</Muted> : null}
+        {resetResult === 'refused' && !resetBlocked && !deleteFailed ? <Body>{t('resetRefused')}</Body> : null}
+        {resetResult === 'wiped' ? <Muted>{t('resetDone')}</Muted> : null}
       </Card>
       <Muted center>92'MBA · v1.0.0</Muted>
     </Screen>

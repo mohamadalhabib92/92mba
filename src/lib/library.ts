@@ -12,7 +12,21 @@ import {
 import type { Lang } from '../i18n/strings';
 
 export type LicenseKind = 'original' | 'owned' | 'public-domain' | 'open' | 'placeholder';
+export type LicenseStatusCode = 'needs-review' | 'public-domain-claimed' | 'placeholder' | 'owned' | 'open';
 export type Category = 'strategy' | 'finance' | 'marketing' | 'leadership' | 'operations' | 'economics' | 'other';
+
+export type License = {
+  kind: LicenseKind;
+  label: string;
+  source?: string;
+  url?: string;
+  /** Statut éditorial. Les appréciations juridiques restent « à valider » dans l'interface. */
+  statusCode?: LicenseStatusCode;
+  /** Date de l'œuvre, ou « à valider » si elle n'est pas établie. */
+  date?: string;
+  /** En-tête, pied et marque Project Gutenberg absents. Décision de Mohamed encore ouverte. */
+  gutenberg?: 'stripped';
+};
 
 export type Doc = {
   id: string;
@@ -21,11 +35,13 @@ export type Doc = {
   lang: Lang;
   category: Category;
   year?: string;
-  license: { kind: LicenseKind; label: string; source?: string; url?: string };
+  license: License;
   summary: string;
   note?: string;
   paragraphs: string[];
   userAdded?: boolean;
+  /** Date réelle d'ajout sur l'appareil (documents de l'utilisateur). */
+  addedAt?: string;
 };
 
 export const CATEGORY_LABELS: Record<Category, Record<Lang, string>> = {
@@ -46,10 +62,12 @@ export const LICENSE_BADGE: Record<LicenseKind, Record<Lang, string>> = {
   placeholder: { fr: 'Placeholder / démo — à remplacer', en: 'Placeholder / demo — replace', ar: 'نص مؤقت — للاستبدال' },
 };
 
-const ORIGINAL = {
-  kind: 'original' as const,
-  label: "Contenu original rédigé pour 92'MBA — à relire et valider par le propriétaire",
-  source: "92'MBA",
+const ORIGINAL: License = {
+  kind: 'original',
+  label: "Contenu original rédigé pour 92'MBA — à valider",
+  source: "Équipe 92'MBA",
+  statusCode: 'needs-review',
+  date: 'à valider',
 };
 
 export const BUILTIN_DOCS: Doc[] = [
@@ -132,9 +150,12 @@ export const BUILTIN_DOCS: Doc[] = [
     category: 'operations',
     license: {
       kind: 'public-domain',
-      label: 'Public domain (author died 1915)',
+      label: 'Public domain claimed (author died 1915) — à valider',
       source: 'Project Gutenberg eBook #6435',
       url: 'https://www.gutenberg.org/ebooks/6435',
+      statusCode: 'public-domain-claimed',
+      date: '1911',
+      gutenberg: 'stripped',
     },
     summary: 'Founding text of scientific management (1911). Historical text reproduced as is.',
     note: 'Historical text (1911) reproduced without modification; some views are dated.',
@@ -149,9 +170,12 @@ export const BUILTIN_DOCS: Doc[] = [
     category: 'economics',
     license: {
       kind: 'public-domain',
-      label: 'Public domain (author died 1790)',
+      label: 'Public domain claimed (author died 1790) — à valider',
       source: 'Project Gutenberg eBook #3300',
       url: 'https://www.gutenberg.org/ebooks/3300',
+      statusCode: 'public-domain-claimed',
+      date: '1776',
+      gutenberg: 'stripped',
     },
     summary: 'The famous pin-factory chapter on productivity and specialisation.',
     note: 'Historical text (1776) reproduced as is; it contains dated and offensive wording.',
@@ -166,9 +190,12 @@ export const BUILTIN_DOCS: Doc[] = [
     category: 'economics',
     license: {
       kind: 'public-domain',
-      label: 'Public domain (author died 1790)',
+      label: 'Public domain claimed (author died 1790) — à valider',
       source: 'Project Gutenberg eBook #3300',
       url: 'https://www.gutenberg.org/ebooks/3300',
+      statusCode: 'public-domain-claimed',
+      date: '1776',
+      gutenberg: 'stripped',
     },
     summary: 'Exchange, self-interest and specialisation.',
     note: 'Historical text (1776) reproduced as is.',
@@ -180,7 +207,13 @@ export const BUILTIN_DOCS: Doc[] = [
     author: '—',
     lang: 'fr',
     category: 'other',
-    license: { kind: 'placeholder', label: 'Placeholder / démo — à remplacer par un contenu possédé ou sous licence ouverte' },
+    license: {
+      kind: 'placeholder',
+      label: 'Placeholder / démo — à remplacer par un contenu possédé ou sous licence ouverte',
+      source: "92'MBA",
+      statusCode: 'placeholder',
+      date: 'à valider',
+    },
     summary: 'Exemple de document à remplacer.',
     paragraphs: placeholderDoc,
   },
@@ -279,4 +312,43 @@ export function searchDocs(docs: Doc[], query: string): SearchHit[] {
     if (score > 0) hits.push({ doc, score, matches });
   }
   return hits.sort((a, b) => b.score - a.score);
+}
+
+export function licenseBadgeLabel(kind: string | undefined, lang: Lang): string {
+  if (kind && kind in LICENSE_BADGE) return LICENSE_BADGE[kind as LicenseKind][lang];
+  return LICENSE_BADGE.owned[lang];
+}
+
+export function licenseStatusCodeOf(doc: Doc): LicenseStatusCode {
+  if (doc.license.statusCode) return doc.license.statusCode;
+  switch (doc.license.kind) {
+    case 'original':
+      return 'needs-review';
+    case 'public-domain':
+      return 'public-domain-claimed';
+    case 'placeholder':
+      return 'placeholder';
+    case 'open':
+      return 'open';
+    default:
+      return 'owned';
+  }
+}
+
+const PG_BOILERPLATE = /project gutenberg|gutenberg\.org|\*\*\* start of the project|\*\*\* end of the project/i;
+
+/** Contrôle du corpus embarqué : métadonnées de licence, et aucun habillage Gutenberg dans le texte. */
+export function licenseAudit(): string[] {
+  const problems: string[] = [];
+  for (const doc of BUILTIN_DOCS) {
+    if ((!doc.author.trim() || doc.author === '—') && doc.license.statusCode !== 'placeholder') problems.push(`${doc.id}:author`);
+    if (!doc.license.date?.trim()) problems.push(`${doc.id}:date`);
+    if (!doc.license.source?.trim()) problems.push(`${doc.id}:source`);
+    if (!doc.license.label?.trim()) problems.push(`${doc.id}:license`);
+    if (!doc.license.statusCode) problems.push(`${doc.id}:status`);
+    if (doc.license.kind === 'public-domain' && doc.license.gutenberg !== 'stripped') problems.push(`${doc.id}:gutenberg`);
+    if (doc.paragraphs.some((p) => PG_BOILERPLATE.test(p) || p.trim() === 'undefined')) problems.push(`${doc.id}:boilerplate`);
+  }
+  if (BUILTIN_DOCS.length !== 11) problems.push(`count:${BUILTIN_DOCS.length}`);
+  return problems;
 }

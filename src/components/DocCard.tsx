@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useI18n } from '../lib/i18n';
-import { CATEGORY_LABELS, Doc, LICENSE_BADGE, paginate, readingMinutes } from '../lib/library';
+import { CATEGORY_LABELS, Doc, licenseBadgeLabel, paginate, readingMinutes } from '../lib/library';
 import type { Progress } from '../lib/store';
 import { colors } from '../theme';
 import { Badge, Card, H3, Muted, ProgressBar, Row } from './ui';
@@ -38,7 +38,7 @@ export function DocCard({ doc, progress, onPress }: { doc: Doc; progress?: Progr
             {doc.year ? ` · ${doc.year}` : ''} · {CATEGORY_LABELS[doc.category][lang]}
           </Muted>
           <Row style={{ flexWrap: 'wrap' }} gap={6}>
-            <Badge label={LICENSE_BADGE[doc.license.kind][lang]} tone={tone} />
+            <Badge label={licenseBadgeLabel(doc.license.kind, lang)} tone={tone} />
             {doc.userAdded ? <Badge label={t('myDocs')} /> : null}
             <Muted>
               {t('pages', { n: pages })} · {t('minutes', { n: readingMinutes(doc) })}
@@ -46,7 +46,7 @@ export function DocCard({ doc, progress, onPress }: { doc: Doc; progress?: Progr
           </Row>
           {progress ? (
             <View style={{ gap: 4, marginTop: 4 }}>
-              <ProgressBar value={pct / 100} color={pct >= 100 ? '#2E7D4F' : colors.accent} />
+              <ProgressBar value={pct / 100} color={pct >= 100 ? colors.success : colors.primary} />
               <Muted>{pct >= 100 ? t('finished') : t('percent', { n: pct })}</Muted>
             </View>
           ) : null}
