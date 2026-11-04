@@ -3,17 +3,20 @@ import { router } from 'expo-router';
 import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { DocCard } from '../../components/DocCard';
-import { Body, Button, Card, EmptyState, H1, H2, Muted, ProgressBar, Row, Screen } from '../../components/ui';
+import { Body, Button, Card, EmptyState, H1, H2, H3, Muted, ProgressBar, Row, Screen } from '../../components/ui';
 import { useI18n } from '../../lib/i18n';
 import { allDocs } from '../../lib/library';
 import { appStore } from '../../lib/store';
 import { useColors, makeStyles } from '../../lib/colors';
+import { useFocus, useFocusText } from '../../lib/focusApp';
 
 export default function Home() {
   const colors = useColors();
   const styles = useStyles();
   const { t, dir } = useI18n();
   const s = appStore.useStore();
+  const { screen: ftx } = useFocusText();
+  const focusActive = !!useFocus().data.active;
   const docs = useMemo(() => allDocs(s.userDocs), [s.userDocs]);
   const recent = useMemo(
     () =>
@@ -58,6 +61,18 @@ export default function Home() {
           />
         </Card>
       )}
+
+      {/* Mode Focus : lecture sans distraction de 10 à 30 min. */}
+      <Card onPress={() => router.push(current ? { pathname: '/focus', params: { doc: current.doc.id } } : '/focus')} accessibilityLabel={ftx.entryA11y}>
+        <Row gap={12}>
+          <Ionicons name="timer-outline" size={24} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <H3>{focusActive ? ftx.activeTitle : ftx.entryTitle}</H3>
+            <Muted>{focusActive ? ftx.resume : ftx.entryText}</Muted>
+          </View>
+          <Ionicons name={dir === 'rtl' ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.muted} />
+        </Row>
+      </Card>
 
       <H2>{t('stats')}</H2>
       <Row gap={10} style={{ alignItems: 'stretch' }}>

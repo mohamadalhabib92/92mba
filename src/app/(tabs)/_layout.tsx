@@ -4,10 +4,13 @@ import React from 'react';
 import { useI18n } from '../../lib/i18n';
 import { useColors } from '../../lib/colors';
 import { haptic } from '../../lib/haptics';
+import { useFocus } from '../../lib/focusApp';
 
 export default function TabsLayout() {
   const colors = useColors();
   const { t } = useI18n();
+  // Mode Focus : pas de barre d’onglets pendant la session (la barre de session la remplace).
+  const focusActive = !!useFocus().data.active;
   const icon =
     (name: keyof typeof Ionicons.glyphMap) =>
     ({ color, size }: { color: import('react-native').ColorValue; size: number }) => <Ionicons name={name} color={(color ?? undefined) as string | undefined} size={size} />;
@@ -19,7 +22,7 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
         tabBarLabelStyle: { fontWeight: '600' },
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border, elevation: 0, shadowOpacity: 0 },
+        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border, elevation: 0, shadowOpacity: 0, ...(focusActive ? { display: 'none' as const } : null) },
       }}
     >
       <Tabs.Screen name="index" options={{ title: t('tabHome'), tabBarIcon: icon('home-outline') }} />

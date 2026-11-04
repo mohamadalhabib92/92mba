@@ -12,6 +12,7 @@ import { I18nProvider, useI18n } from '../lib/i18n';
 import { appStore, BOOT_TIMEOUT_MS } from '../lib/store';
 import { useColors, useIsDark } from '../lib/colors';
 import { hydrateHaptics } from '../lib/haptics';
+import { FocusLayer, useFocus } from '../lib/focusApp';
 
 export function ErrorBoundary(props: { error: Error; retry: () => void | Promise<void> }) {
   return <RouteErrorBoundary {...props} />;
@@ -77,6 +78,12 @@ function Gate({ children }: { children: React.ReactNode }) {
   return <BootSkeleton />;
 }
 
+/** Mode Focus : plein écran (barre d’état masquée) tant qu’une session est active. */
+function FocusStatusBar({ dark }: { dark: boolean }) {
+  const active = !!useFocus().data.active;
+  return <StatusBar style={dark ? 'light' : 'dark'} hidden={active} />;
+}
+
 export default function RootLayout() {
   const colors = useColors();
   const dark = useIsDark();
@@ -86,12 +93,15 @@ export default function RootLayout() {
         <I18nProvider>
           <FeedbackProvider>
           <Gate>
-            <StatusBar style={dark ? 'light' : 'dark'} />
-            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="doc/[id]" />
-              <Stack.Screen name="add" options={{ presentation: 'modal' }} />
-            </Stack>
+            <FocusStatusBar dark={dark} />
+            <FocusLayer>
+              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="doc/[id]" />
+                <Stack.Screen name="add" options={{ presentation: 'modal' }} />
+                <Stack.Screen name="focus" />
+              </Stack>
+            </FocusLayer>
           </Gate>
           </FeedbackProvider>
         </I18nProvider>

@@ -16,6 +16,7 @@ import { readingColumnWidth, readingPadding, readerThemes, snapFontScale, snapLi
 import { useColors, makeStyles, useTint } from '../../lib/colors';
 import { announce, useLargeText } from '../../lib/a11y';
 import { useFeedback } from '../../components/feedback';
+import { useFocus, useFocusText } from '../../lib/focusApp';
 
 const THEME_ORDER: ReaderTheme[] = ['light', 'sepia', 'dark'];
 
@@ -27,6 +28,9 @@ export default function Reader() {
   const tint = useTint();
   const large = useLargeText();
   const { toast } = useFeedback();
+  // Mode Focus : la lecture continue dedans ; la barre de session gère le bas de l’écran.
+  const focusActive = !!useFocus().data.active;
+  const { screen: ftx } = useFocusText();
   const s = appStore.useStore();
   const doc = useMemo(() => findDoc(firstString(params.id) || undefined, s.userDocs), [params.id, s.userDocs]);
   const pages = useMemo(() => (doc ? paginate(doc) : []), [doc]);
@@ -114,7 +118,7 @@ export default function Reader() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, direction: dir }}>
+    <SafeAreaView edges={focusActive ? ['top', 'left', 'right'] : undefined} style={{ flex: 1, backgroundColor: theme.bg, direction: dir }}>
       <View style={[styles.top, { backgroundColor: theme.bar }]}>
         {iconBtn(dir === 'rtl' ? 'chevron-forward' : 'chevron-back', t('back'), () => (router.canGoBack() ? router.back() : router.replace('/')))}
         <View style={{ flex: 1 }}>
@@ -127,6 +131,7 @@ export default function Reader() {
           toggleBookmark(doc.id, page);
           toast(isMarked ? t('bookmarkRemoved') : t('bookmarkAdded'), isMarked ? 'info' : 'success');
         }, isMarked, { selected: isMarked })}
+        {focusActive ? null : iconBtn('timer-outline', ftx.readerButton, () => router.push({ pathname: '/focus', params: { doc: doc.id } }))}
         {iconBtn('information-circle-outline', t('info'), () => setPanel(panel === 'info' ? 'none' : 'info'), panel === 'info', { expanded: panel === 'info' })}
       </View>
       <View style={[styles.tools, { backgroundColor: theme.bar }]}>

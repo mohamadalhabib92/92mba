@@ -4,6 +4,7 @@ import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { softShadow, useColors, useIsDark } from '../lib/colors';
 import { haptic } from '../lib/haptics';
+import { toastsMuted } from '../lib/quiet';
 import { announce, useLargeText } from '../lib/a11y';
 import { toastColors, toastIconInk } from '../theme';
 import { nativeDriver, SPRING, useSystemReduceMotion } from '../lib/motion';
@@ -24,6 +25,8 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
   const t1 = useRef<ReturnType<typeof setTimeout> | null>(null);
   const t2 = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toast = useCallback((text: string, kind: Kind = 'success') => {
+    // Mode Focus : toasts en sourdine (ni affichage, ni annonce, ni vibration).
+    if (toastsMuted()) return;
     if (t1.current) clearTimeout(t1.current);
     if (kind === 'error') haptic.error();
     else if (kind === 'success') haptic.success();
