@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { softShadow, useColors, useIsDark } from '../lib/colors';
 import { haptic } from '../lib/haptics';
+import { announce, useLargeText } from '../lib/a11y';
+import { toastColors, toastIconInk } from '../theme';
 import { nativeDriver, SPRING, useSystemReduceMotion } from '../lib/motion';
 
 type Kind = 'success' | 'info' | 'error';
@@ -26,14 +28,14 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
     if (kind === 'error') haptic.error();
     else if (kind === 'success') haptic.success();
     else haptic.select();
-    AccessibilityInfo.announceForAccessibility?.(text);
+    announce(text);
     setToast({ id: Date.now(), text, kind });
     t1.current = setTimeout(() => setToast(null), kind === 'error' ? 4200 : 2600);
   }, []);
   const celebrate = useCallback((c: Celebration) => {
     if (t2.current) clearTimeout(t2.current);
     haptic.success();
-    AccessibilityInfo.announceForAccessibility?.(c.sub ? `${c.title}. ${c.sub}` : c.title);
+    announce(c.sub ? `${c.title}. ${c.sub}` : c.title);
     setParty({ ...c, id: Date.now() });
     t2.current = setTimeout(() => setParty(null), 1700);
   }, []);
@@ -64,8 +66,7 @@ function ToastView({ toast, onDone }: { toast: Toast; onDone: () => void }) {
     Animated.spring(v, { toValue: 1, useNativeDriver: nativeDriver, ...SPRING.enter }).start();
   }, [v, reduce]);
   // Toast neutre (encre sur fond inversé) : AA dans les deux thèmes.
-  const bg = dark ? '#ECE8DF' : '#16213A';
-  const fg = dark ? '#0E1424' : '#FFFFFF';
+  const { bg, fg } = dark ? toastColors.dark : toastColors.light;
   const tint = toast.kind === 'error' ? colors.danger : toast.kind === 'success' ? colors.success : colors.accent;
   const icon = toast.kind === 'error' ? 'alert' : toast.kind === 'success' ? 'checkmark' : 'information';
   return (
@@ -86,7 +87,7 @@ function ToastView({ toast, onDone }: { toast: Toast; onDone: () => void }) {
       >
         <Pressable accessibilityRole="button" accessibilityLabel={toast.text} onPress={onDone} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, minHeight: 52 }}>
           <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: tint, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name={icon} size={17} color={dark ? '#0E1424' : '#FFFFFF'} />
+            <Ionicons name={icon} size={17} color={toastIconInk(tint)} />
           </View>
           <Text style={{ color: fg, fontSize: 15, fontWeight: '600', flex: 1 }}>{toast.text}</Text>
         </Pressable>
@@ -99,6 +100,7 @@ function CelebrationView({ c, onDone }: { c: Celebration; onDone: () => void }) 
   const colors = useColors();
   const dark = useIsDark();
   const reduce = useSystemReduceMotion();
+  const large = useLargeText();
   const pop = useRef(new Animated.Value(reduce ? 1 : 0)).current;
   const ring = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -150,7 +152,7 @@ function CelebrationView({ c, onDone }: { c: Celebration; onDone: () => void }) 
           </View>
           <Text style={{ color: colors.text, fontSize: 17, fontWeight: '700', textAlign: 'center' }}>{c.title}</Text>
           {c.sub ? (
-            <Text numberOfLines={2} style={{ color: colors.muted, fontSize: 13, lineHeight: 18, textAlign: 'center' }}>
+            <Text numberOfLines={large ? undefined : 2} style={{ color: colors.muted, fontSize: 13, lineHeight: 18, textAlign: 'center' }}>
               {c.sub}
             </Text>
           ) : null}

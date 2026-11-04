@@ -96,9 +96,9 @@ export default function AddDoc() {
       </Card>
       <Card>
         <H3>{t('title')}</H3>
-        <TextInput value={title} onChangeText={setTitle} style={styles.input} placeholder={t('title')} placeholderTextColor={colors.muted} />
+        <TextInput value={title} onChangeText={setTitle} style={[styles.input, dirStyle(docLang === 'ar')]} placeholder={t('title')} accessibilityLabel={t('title')} placeholderTextColor={colors.muted} />
         <H3>{t('author')}</H3>
-        <TextInput value={author} onChangeText={setAuthor} style={styles.input} placeholder={t('author')} placeholderTextColor={colors.muted} />
+        <TextInput value={author} onChangeText={setAuthor} style={[styles.input, dirStyle(dir === 'rtl')]} placeholder={t('author')} accessibilityLabel={t('author')} placeholderTextColor={colors.muted} />
         <H3>{t('language')}</H3>
         <Row style={{ flexWrap: 'wrap' }}>
           {LANGS.map((l) => (
@@ -119,7 +119,7 @@ export default function AddDoc() {
           <Chip label={t('licPD')} active={kind === 'public-domain'} onPress={() => setKind('public-domain')} />
           <Chip label={t('licOpen')} active={kind === 'open'} onPress={() => setKind('open')} />
         </Row>
-        <TextInput value={details} onChangeText={setDetails} style={styles.input} placeholder={t('licenseDetails')} placeholderTextColor={colors.muted} />
+        <TextInput value={details} onChangeText={setDetails} style={[styles.input, dirStyle(dir === 'rtl')]} placeholder={t('licenseDetails')} accessibilityLabel={t('licenseDetails')} placeholderTextColor={colors.muted} />
       </Card>
       <Card>
         <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
@@ -130,8 +130,9 @@ export default function AddDoc() {
           value={text}
           onChangeText={setText}
           multiline
-          style={[styles.input, { minHeight: 200, textAlignVertical: 'top' }]}
+          style={[styles.input, { minHeight: 200, textAlignVertical: 'top' }, dirStyle(docLang === 'ar')]}
           placeholder={t('pasteText')}
+          accessibilityLabel={t('pasteText')}
           placeholderTextColor={colors.muted}
         />
         {text ? <Muted>{text.length.toLocaleString()} car.</Muted> : null}
@@ -158,3 +159,8 @@ const useStyles = makeStyles((colors) => ({
     backgroundColor: colors.bg,
   },
 }));
+
+/** Champ de saisie en arabe : écriture de droite à gauche, alignée à droite. */
+function dirStyle(rtl: boolean) {
+  return rtl ? ({ textAlign: 'right', writingDirection: 'rtl' } as const) : ({ textAlign: 'left' } as const);
+}

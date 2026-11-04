@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleProp,
   StyleSheet,
+  Switch,
   Text,
   TextProps,
   TextStyle,
@@ -20,6 +21,7 @@ import { uiFontStyle, useAppFonts } from '../lib/fonts';
 import { radius, space } from '../theme';
 import { makeStyles, softShadow, useBadgeTones, useColors, useIsDark } from '../lib/colors';
 import { haptic } from '../lib/haptics';
+import { useLargeText, useReduceTransparency } from '../lib/a11y';
 import { nativeDriver, SPRING, useEntrance, usePressScale, useSystemReduceMotion } from '../lib/motion';
 
 export function Screen({
@@ -57,13 +59,28 @@ export function Screen({
 
 type TProps = TextProps & { color?: string; center?: boolean };
 const mk = (base: TextStyle, tone: 'text' | 'muted' = 'text') =>
-  function T({ style, color, center, ...p }: TProps) {
+  function T({ style, color, center, numberOfLines, ...p }: TProps) {
     const colors = useColors();
     const { dir } = useI18n();
     const fonts = useAppFonts();
-    const face = uiFontStyle(base.fontWeight, dir === 'rtl', fonts);
+    // Grand texte (Dynamic Type / police système) : jamais de troncature, le texte passe à la ligne.
+    const large = useLargeText();
+    const rtl = dir === 'rtl';
+    const face = uiFontStyle(base.fontWeight, rtl, fonts);
     return (
-      <Text {...p} style={[base, face, dir === 'rtl' && base.letterSpacing ? { letterSpacing: 0 } : null, { color: color ?? colors[tone] }, center ? { textAlign: 'center' } : null, style]} />
+      <Text
+        {...p}
+        numberOfLines={large ? undefined : numberOfLines}
+        style={[
+          base,
+          face,
+          rtl && base.letterSpacing ? { letterSpacing: 0 } : null,
+          { color: color ?? colors[tone] },
+          rtl ? { writingDirection: 'rtl', textAlign: 'right' } : null,
+          center ? { textAlign: 'center' } : null,
+          style,
+        ]}
+      />
     );
   };
 export const H1 = mk({ fontSize: 30, fontWeight: '800', letterSpacing: -0.5 });
@@ -77,11 +94,14 @@ export function Card({
   style,
   onPress,
   accessibilityLabel,
+  accessible,
 }: {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
   accessibilityLabel?: string;
+  /** false : la carte laisse le lecteur d’écran atteindre les boutons qu’elle contient. */
+  accessible?: boolean;
 }) {
   const styles = useStyles();
   const reduce = useSystemReduceMotion();
@@ -90,8 +110,9 @@ export function Card({
     return (
       <Animated.View style={{ transform: [{ scale: press.scale }] }}>
         <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={accessibilityLabel}
+          accessible={accessible}
+          accessibilityRole={accessible === false ? undefined : 'button'}
+          accessibilityLabel={accessible === false ? undefined : accessibilityLabel}
           onPressIn={press.onPressIn}
           onPressOut={press.onPressOut}
           onPress={() => {
@@ -402,10 +423,11 @@ export function EmptyState({ icon, title, text, action }: { icon?: React.ReactNo
   const styles = useStyles();
   const reduce = useSystemReduceMotion();
   const enter = useEntrance(reduce, 60, 12);
+  const solid = useReduceTransparency();
   return (
     <Animated.View style={[styles.empty, enter]}>
       {icon ? (
-        <View style={styles.haloOuter}>
+        <View style={[styles.haloOuter, solid && { opacity: 1 }]}>
           <View style={styles.haloInner}>{icon}</View>
         </View>
       ) : null}
@@ -422,6 +444,39 @@ export function ErrorState({ title, text, retryLabel, onRetry, icon }: { title: 
     <View accessibilityRole="alert">
       <EmptyState icon={icon} title={title} text={text} action={onRetry && retryLabel ? <Button label={retryLabel} onPress={onRetry} /> : undefined} />
     </View>
+  );
+}
+
+/**
+ * Interrupteur avec libellé : rôle « switch », état coché lu par VoiceOver / TalkBack,
+ * toute la ligne est touchable (≥ 44 pt) et le texte passe à la ligne en grand texte.
+ */
+export function ToggleRow({ label, hint, value, onChange }: { label: string; hint?: string; value: boolean; onChange: (v: boolean) => void }) {
+  const colors = useColors();
+  return (
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityLabel={label}
+      accessibilityHint={hint}
+      accessibilityState={{ checked: value }}
+      onPress={() => onChange(!value)}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 52, paddingVertical: space.xs }}
+    >
+      <View style={{ flex: 1, gap: 2 }}>
+        <H3>{label}</H3>
+        {hint ? <Muted>{hint}</Muted> : null}
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ false: colors.border, true: colors.primary }}
+        thumbColor={colors.surface}
+        ios_backgroundColor={colors.border}
+        // la ligne entière porte déjà le rôle et l’état
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      />
+    </Pressable>
   );
 }
 
@@ -490,9 +545,11 @@ const useStyles = makeStyles((colors) => ({
     flexDirection: 'row',
     gap: 8,
   },
-  buttonText: { fontSize: 15, fontWeight: '700' },
+  buttonText: { fontSize: 15, fontWeight: '700', textAlign: 'center', flexShrink: 1 },
   chip: {
     minHeight: 44,
+    maxWidth: '100%',
+    paddingVertical: 6,
     paddingHorizontal: 14,
     borderRadius: 999,
     borderWidth: 1,
@@ -500,8 +557,8 @@ const useStyles = makeStyles((colors) => ({
     backgroundColor: colors.surface,
     justifyContent: 'center',
   },
-  chipText: { fontSize: 13, fontWeight: '600', color: colors.text },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, alignSelf: 'flex-start' },
+  chipText: { fontSize: 13, fontWeight: '600', color: colors.text, textAlign: 'center' },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, alignSelf: 'flex-start', maxWidth: '100%' },
   badgeText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
   sliderHit: { height: 44, justifyContent: 'center' },
   sliderTrack: { height: 6, borderRadius: 3, backgroundColor: colors.surfaceAlt, overflow: 'hidden' },

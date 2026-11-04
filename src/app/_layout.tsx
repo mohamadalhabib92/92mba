@@ -11,6 +11,7 @@ import { FontProvider } from '../lib/fonts';
 import { I18nProvider, useI18n } from '../lib/i18n';
 import { appStore, BOOT_TIMEOUT_MS } from '../lib/store';
 import { useColors, useIsDark } from '../lib/colors';
+import { hydrateHaptics } from '../lib/haptics';
 
 export function ErrorBoundary(props: { error: Error; retry: () => void | Promise<void> }) {
   return <RouteErrorBoundary {...props} />;
@@ -23,13 +24,13 @@ export function SuspenseFallback() {
 function StorageWarning() {
   const colors = useColors();
   const warning = appStore.useStorageWarning();
-  const { t } = useI18n();
+  const { t, dir } = useI18n();
   if (!warning) return null;
   const message =
     warning === 'delete-failed' ? 'resetDeleteFailed' : warning === 'copy-failed' ? 'storageCopyFailed' : 'storageUnreadable';
   return (
-    <View style={{ backgroundColor: colors.noticeBg, paddingHorizontal: 16, paddingVertical: 12 }}>
-      <Text style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>{t(message)}</Text>
+    <View accessibilityRole="alert" style={{ backgroundColor: colors.noticeBg, paddingHorizontal: 16, paddingVertical: 12, direction: dir }}>
+      <Text style={{ color: colors.text, fontSize: 15, lineHeight: 22, writingDirection: dir, textAlign: dir === 'rtl' ? 'right' : 'left' }}>{t(message)}</Text>
     </View>
   );
 }
@@ -40,6 +41,11 @@ function Gate({ children }: { children: React.ReactNode }) {
   const { onboarded } = appStore.useStore();
   const [attempt, setAttempt] = useState(0);
   const [timedOut, setTimedOut] = useState(false);
+
+  // Réglage « Vibrations » : clé dédiée, lue une fois (absente ⇒ activé).
+  useEffect(() => {
+    void hydrateHaptics();
+  }, []);
 
   useEffect(() => {
     if (hydrated) return;

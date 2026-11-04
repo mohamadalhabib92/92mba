@@ -13,7 +13,8 @@ import { appStore, setProgress, toggleBookmark } from '../../lib/store';
 import { useReaderPage } from './useReaderPage';
 import { firstString, sanitizeSearchQuery } from '../../lib/textGuard';
 import { readingColumnWidth, readingPadding, readerThemes, snapFontScale, snapLineHeight, ReaderTheme } from '../../theme';
-import { useColors, makeStyles } from '../../lib/colors';
+import { useColors, makeStyles, useTint } from '../../lib/colors';
+import { announce, useLargeText } from '../../lib/a11y';
 import { useFeedback } from '../../components/feedback';
 
 const THEME_ORDER: ReaderTheme[] = ['light', 'sepia', 'dark'];
@@ -22,7 +23,9 @@ export default function Reader() {
   const colors = useColors();
   const styles = useStyles();
   const params = useLocalSearchParams<{ id: string; page?: string; q?: string }>();
-  const { t, lang } = useI18n();
+  const { t, lang, dir } = useI18n();
+  const tint = useTint();
+  const large = useLargeText();
   const { toast } = useFeedback();
   const s = appStore.useStore();
   const doc = useMemo(() => findDoc(firstString(params.id) || undefined, s.userDocs), [params.id, s.userDocs]);
@@ -59,6 +62,16 @@ export default function Reader() {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [page, doc?.id]);
 
+  // Lecteur d’écran : annonce la page atteinte après un changement (pas à l’ouverture), et la fin du document.
+  const announcedPage = useRef<number | null>(null);
+  useEffect(() => {
+    if (!pages.length) return;
+    const prev = announcedPage.current;
+    announcedPage.current = page;
+    if (prev === null || prev === page) return;
+    announce(page === pages.length - 1 ? `${t('page', { p: page + 1, n: pages.length })}. ${t('finished')}` : t('page', { p: page + 1, n: pages.length }));
+  }, [page, pages.length, t]);
+
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
     const onKey = (e: KeyboardEvent) => {
@@ -94,18 +107,18 @@ export default function Reader() {
   const isMarked = marks.includes(page);
   const shown = dragPage ?? page;
   const pct = Math.round(((page + 1) / pages.length) * 100);
-  const iconBtn = (name: keyof typeof Ionicons.glyphMap, label: string, onPress: () => void, active?: boolean) => (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={[styles.iconBtn, active && { backgroundColor: theme.accent + '33' }]} hitSlop={4}>
+  const iconBtn = (name: keyof typeof Ionicons.glyphMap, label: string, onPress: () => void, active?: boolean, state?: { selected?: boolean; expanded?: boolean }) => (
+    <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={state} onPress={onPress} style={[styles.iconBtn, active && { backgroundColor: tint(theme.accent, theme.bar, 0.2) }]} hitSlop={4}>
       <Ionicons name={name} size={20} color={active ? theme.accent : theme.text} />
     </Pressable>
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, direction: dir }}>
       <View style={[styles.top, { backgroundColor: theme.bar }]}>
-        {iconBtn('chevron-back', t('back'), () => (router.canGoBack() ? router.back() : router.replace('/')))}
+        {iconBtn(dir === 'rtl' ? 'chevron-forward' : 'chevron-back', t('back'), () => (router.canGoBack() ? router.back() : router.replace('/')))}
         <View style={{ flex: 1 }}>
-          <Text numberOfLines={1} style={[styles.title, { color: theme.text }]}>
+          <Text numberOfLines={large ? undefined : 1} style={[styles.title, { color: theme.text, writingDirection: rtl ? 'rtl' : 'ltr', textAlign: dir === 'rtl' ? 'right' : 'left' }]}>
             {doc.title}
           </Text>
           <Text style={{ color: theme.muted, fontSize: 12 }}>{t('page', { p: page + 1, n: pages.length })} · {t('percent', { n: pct })}</Text>
@@ -113,14 +126,14 @@ export default function Reader() {
         {iconBtn(isMarked ? 'bookmark' : 'bookmark-outline', isMarked ? t('removeBookmark') : t('addBookmark'), () => {
           toggleBookmark(doc.id, page);
           toast(isMarked ? t('bookmarkRemoved') : t('bookmarkAdded'), isMarked ? 'info' : 'success');
-        }, isMarked)}
-        {iconBtn('information-circle-outline', t('info'), () => setPanel(panel === 'info' ? 'none' : 'info'), panel === 'info')}
+        }, isMarked, { selected: isMarked })}
+        {iconBtn('information-circle-outline', t('info'), () => setPanel(panel === 'info' ? 'none' : 'info'), panel === 'info', { expanded: panel === 'info' })}
       </View>
       <View style={[styles.tools, { backgroundColor: theme.bar }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('textSmaller')} style={styles.tool} onPress={() => appStore.set({ fontScale: snapFontScale(fontScale - 0.1) })}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('textSmaller')} accessibilityState={{ disabled: fontScale <= 0.8 }} style={styles.tool} onPress={() => appStore.set({ fontScale: snapFontScale(fontScale - 0.1) })}>
           <Text style={{ color: theme.text, fontWeight: '700', fontSize: 14 }}>A-</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('textLarger')} style={styles.tool} onPress={() => appStore.set({ fontScale: snapFontScale(fontScale + 0.1) })}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('textLarger')} accessibilityState={{ disabled: fontScale >= 2 }} style={styles.tool} onPress={() => appStore.set({ fontScale: snapFontScale(fontScale + 0.1) })}>
           <Text style={{ color: theme.text, fontWeight: '700', fontSize: 18 }}>A+</Text>
         </Pressable>
         <Pressable
@@ -131,20 +144,20 @@ export default function Reader() {
         >
           <Ionicons name={s.readerTheme === 'dark' ? 'moon' : s.readerTheme === 'sepia' ? 'cafe-outline' : 'sunny-outline'} size={18} color={theme.text} />
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('findInDoc')} style={styles.tool} onPress={() => setPanel(panel === 'find' ? 'none' : 'find')}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('findInDoc')} accessibilityState={{ expanded: panel === 'find' }} style={styles.tool} onPress={() => setPanel(panel === 'find' ? 'none' : 'find')}>
           <Ionicons name="search" size={18} color={panel === 'find' ? theme.accent : theme.text} />
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('display')} style={styles.tool} onPress={() => setPanel(panel === 'display' ? 'none' : 'display')}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('display')} accessibilityState={{ expanded: panel === 'display' }} style={styles.tool} onPress={() => setPanel(panel === 'display' ? 'none' : 'display')}>
           <Ionicons name="text" size={18} color={panel === 'display' ? theme.accent : theme.text} />
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('bookmarks')} style={styles.tool} onPress={() => setPanel(panel === 'bookmarks' ? 'none' : 'bookmarks')}>
+        <Pressable accessibilityRole="button" accessibilityLabel={marks.length ? `${t('bookmarks')} (${marks.length})` : t('bookmarks')} accessibilityState={{ expanded: panel === 'bookmarks' }} style={styles.tool} onPress={() => setPanel(panel === 'bookmarks' ? 'none' : 'bookmarks')}>
           <Ionicons name="list" size={18} color={panel === 'bookmarks' ? theme.accent : theme.text} />
           {marks.length ? <Text style={{ color: theme.muted, fontSize: 11 }}>{marks.length}</Text> : null}
         </Pressable>
       </View>
 
       {panel !== 'none' ? (
-        <View style={[styles.panel, { backgroundColor: theme.bar, borderColor: theme.muted + '44' }]}>
+        <View style={[styles.panel, { backgroundColor: theme.bar, borderColor: tint(theme.muted, theme.bar, 0.27) }]}>
           {panel === 'info' ? (
             <View style={{ gap: 6 }}>
               <Badge
@@ -189,15 +202,21 @@ export default function Reader() {
                 value={find}
                 onChangeText={setFind}
                 placeholder={t('findInDoc')}
+                accessibilityLabel={t('findInDoc')}
                 placeholderTextColor={theme.muted}
                 autoFocus
-                style={[styles.find, { color: theme.text, borderColor: theme.muted + '66', textAlign: rtl ? 'right' : 'left' }]}
+                style={[styles.find, { color: theme.text, borderColor: tint(theme.muted, theme.bar, 0.4), textAlign: rtl ? 'right' : 'left' }]}
               />
               {find.trim().length >= 2 ? (
                 findHits.length ? (
                   <Row style={{ flexWrap: 'wrap' }}>
                     {findHits.map((h) => (
-                      <Pressable key={h.i} accessibilityRole="button" onPress={() => go(h.i)} style={[styles.pill, { borderColor: h.i === page ? theme.accent : theme.muted + '66' }]}>
+                      <Pressable
+                        key={h.i}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t('page', { p: h.i + 1, n: pages.length })} (${h.n})`}
+                        accessibilityState={{ selected: h.i === page }}
+                        onPress={() => go(h.i)} style={[styles.pill, { borderColor: h.i === page ? theme.accent : tint(theme.muted, theme.bar, 0.4) }]}>
                         <Text style={{ color: theme.text }}>{t('page', { p: h.i + 1, n: pages.length })} ({h.n})</Text>
                       </Pressable>
                     ))}

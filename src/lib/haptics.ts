@@ -1,13 +1,20 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
+import { createVibrationPref } from './vibrations';
 
 /**
- * Haptique douce (expo-haptics). Silencieuse sur le web et si le module
- * natif n’est pas présent dans le binaire (ancien build) : jamais d’erreur.
+ * Haptique douce (expo-haptics) — SEUL point d’entrée de l’app.
+ * Respecte le réglage « Vibrations » (activé par défaut, clé dédiée).
+ * Silencieuse sur le web et si le module natif n’est pas présent dans le
+ * binaire (ancien build) : jamais d’erreur.
  */
 type HapticsModule = typeof import('expo-haptics');
 
+export const VIBRATIONS_KEY = '92mba:vibrations@v1';
+export const vibrations = createVibrationPref(AsyncStorage, VIBRATIONS_KEY);
+
 let mod: HapticsModule | null | undefined;
-let enabled = true;
 
 function load(): HapticsModule | null {
   if (mod !== undefined) return mod;
@@ -21,13 +28,23 @@ function load(): HapticsModule | null {
   return mod;
 }
 
-/** Coupe ou rétablit toute l’haptique (réglage utilisateur). */
+/** Coupe ou rétablit toute l’haptique (réglage utilisateur, mémorisé). */
 export function setHapticsEnabled(on: boolean) {
-  enabled = on;
+  vibrations.set(on);
+}
+
+/** Lit le réglage mémorisé (appelé une fois au démarrage). */
+export function hydrateHaptics() {
+  return vibrations.hydrate();
+}
+
+/** Réglage courant, réactif. */
+export function useHapticsEnabled(): boolean {
+  return useSyncExternalStore(vibrations.subscribe, vibrations.get, vibrations.get);
 }
 
 function run(fn: (h: HapticsModule) => Promise<void> | void) {
-  if (!enabled) return;
+  if (!vibrations.get()) return;
   const h = load();
   if (!h) return;
   try {

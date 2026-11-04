@@ -177,3 +177,40 @@ export const fontNames = {
   arabic: 'NotoNaskhArabic',
   arabicBold: 'NotoNaskhArabicBold',
 } as const;
+
+/** Mélange opaque de `fg` sur `bg` (a = part de fg) : une teinte pleine, sans transparence. */
+export function mix(fg: string, bg: string, a: number): string {
+  const p = (hex: string, i: number) => parseInt(hex.replace('#', '').slice(i, i + 2), 16);
+  const k = Math.max(0, Math.min(1, a));
+  let out = '#';
+  for (const i of [0, 2, 4]) {
+    const v = Math.round(p(fg, i) * k + p(bg, i) * (1 - k));
+    out += v.toString(16).padStart(2, '0');
+  }
+  return out.toUpperCase();
+}
+
+/**
+ * Garde la teinte de marque mais la rapproche de `toward` (couleur du texte)
+ * par pas de 5 % jusqu’à atteindre le contraste demandé (AA = 4,5 ; icônes = 3).
+ */
+export function ensureContrast(fg: string, bg: string, toward: string, min = 4.5): string {
+  if (!/^#[0-9a-fA-F]{6}/.test(fg) || !/^#[0-9a-fA-F]{6}/.test(bg)) return fg;
+  const base = fg.slice(0, 7);
+  for (let k = 0; k <= 1.0001; k += 0.05) {
+    const c = k === 0 ? base : mix(toward, base, k);
+    if (contrastRatio(c, bg) >= min) return c;
+  }
+  return toward;
+}
+
+/** Toast neutre inversé (encre sur fond foncé / clair) : AA dans les deux thèmes. */
+export const toastColors = {
+  light: { bg: '#16213A', fg: '#FFFFFF' },
+  dark: { bg: '#ECE8DF', fg: '#0E1424' },
+} as const;
+
+/** Icône du toast : encre claire ou foncée, celle qui contraste le plus avec la pastille (≥ 3:1). */
+export function toastIconInk(tint: string): string {
+  return contrastRatio('#FFFFFF', tint) >= contrastRatio(toastColors.dark.fg, tint) ? '#FFFFFF' : toastColors.dark.fg;
+}

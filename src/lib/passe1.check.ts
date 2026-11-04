@@ -1,4 +1,4 @@
-import { highlightColors, badgeTones, badgeTonesDark, colors, darkColors, contrastRatio, readerThemes, readingColumnWidth, snapFontScale, snapLineHeight, snapMargin } from '../theme';
+import { highlightColors, badgeTones, badgeTonesDark, colors, darkColors, contrastRatio, ensureContrast, mix, toastColors, toastIconInk, readerThemes, readingColumnWidth, snapFontScale, snapLineHeight, snapMargin } from '../theme';
 import { classifyOptionalFailure, FEATURE_ACCOUNT, FEATURE_AI, sentryEnabled } from './features';
 import { licenseAudit } from './library';
 import React, { act } from 'react';
@@ -8,6 +8,7 @@ import { createPersistedStore, unreadableStorageKey, type KeyValueStorage } from
 import { commitSessionProgress, recordProgress } from './store';
 import { defaultAppState, mergeLate, mergeStored, readingPageToKeep } from './stateMerge';
 import type { Doc } from './library';
+import { createVibrationPref } from './vibrations';
 import { cleanHistory, fillTemplate, safePageIndex, sanitizeSearchQuery } from './textGuard';
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -79,6 +80,47 @@ for (const [name, tone] of Object.entries(badgeTonesDark)) {
 // Toasts (fond inversé neutre).
 checkContrast('toast clair', '#FFFFFF', '#16213A');
 checkContrast('toast sombre', '#0E1424', '#ECE8DF');
+
+// ── Accessibilité : contraste AA de chaque couple réellement affiché (clair + sombre). ──
+for (const [label, c, dark] of [['clair', colors, false], ['sombre', darkColors, true]] as const) {
+  // Boutons : principal, danger, secondaire, fantôme (sur fond et sur carte).
+  checkContrast(`${label} bouton principal`, c.onPrimary, c.primary);
+  checkContrast(`${label} bouton danger`, c.onPrimary, c.danger);
+  checkContrast(`${label} bouton secondaire`, c.primary, c.primarySoft);
+  checkContrast(`${label} bouton fantôme/bg`, c.primary, c.bg);
+  checkContrast(`${label} bouton fantôme/carte`, c.primary, c.surface);
+  // Puces : inactive (texte sur carte), active (blanc sur marine).
+  checkContrast(`${label} puce`, c.text, c.surface);
+  checkContrast(`${label} puce active`, c.onPrimary, c.primary);
+  // Liens / encres secondaires.
+  checkContrast(`${label} accentInk/bg`, c.accentInk, c.bg);
+  checkContrast(`${label} accentInk/surface`, c.accentInk, c.surface);
+  checkContrast(`${label} muted/notice`, c.muted, c.noticeBg);
+  checkContrast(`${label} text/notice (bandeau stockage)`, c.text, c.noticeBg);
+  // Icônes et éléments non textuels : 3:1 (WCAG 1.4.11).
+  checkContrast(`${label} icône état vide`, c.muted, c.surface, 3);
+  checkContrast(`${label} interrupteur actif`, c.primary, c.surface, 3);
+  checkContrast(`${label} barre de progression`, c.primary, c.surfaceAlt, 3);
+  checkContrast(`${label} progression terminée`, c.success, c.surfaceAlt, 3);
+  checkContrast(`${label} célébration icône`, c.accent, c.brand, 3);
+  checkContrast(`${label} célébration titre`, c.text, c.surface);
+  // Toasts : texte, puis icône sur sa pastille (succès, erreur, info).
+  const toast = dark ? toastColors.dark : toastColors.light;
+  checkContrast(`${label} toast texte`, toast.fg, toast.bg);
+  for (const [k, tint] of [['succès', c.success], ['erreur', c.danger], ['info', c.accent]] as const) {
+    checkContrast(`${label} toast icône ${k}`, toastIconInk(tint), tint, 3);
+  }
+}
+// Lecteur : icône active sur son voile (teinte pleine identique avec « Réduire la transparence »).
+for (const [name, th] of Object.entries(readerThemes)) {
+  checkContrast(`lecteur ${name} icône active`, th.accent, mix(th.accent, th.bar, 0.2), 3);
+  checkContrast(`lecteur ${name} icône`, th.text, th.bar, 3);
+  checkContrast(`lecteur ${name} texte/bg`, th.text, th.bg);
+}
+// Outil : ensureContrast garde la teinte quand elle passe, sinon la rapproche du texte jusqu’à AA.
+assert(ensureContrast(colors.primary, colors.surface, colors.text) === colors.primary, 'ensureContrast garde une teinte déjà lisible');
+assert(contrastRatio(ensureContrast(colors.accent, colors.bg, colors.text), colors.bg) >= 4.5, 'ensureContrast atteint AA');
+assert(mix('#000000', '#FFFFFF', 0.5) === '#808080', `mix ${mix('#000000', '#FFFFFF', 0.5)}`);
 
 assert(readingColumnWidth(18, 'wide') === 540, 'wide measure');
 assert(readingColumnWidth(18, 'normal') === 612, 'normal measure');
@@ -160,6 +202,7 @@ void (async () => {
   await scenarioLinkOpensRequestedPage();
   await scenarioDeleteFailureIsNotUnverifiedCopy();
   await scenarioRereadCopyBeforeDelete();
+  await scenarioVibrationsDefaultOnAndAdditive();
   console.log('passe1 checks ok');
 })();
 
@@ -775,4 +818,42 @@ async function scenarioRereadCopyBeforeDelete() {
   assert(disk.get('92mba:v1') === raw, 'original altéré');
   assert(store.getWarning() === 'copy-failed', `relecture ${store.getWarning()}`);
   assert(store.getResetResult() === 'refused', `relecture résultat ${store.getResetResult()}`);
+}
+
+/** Réglage « Vibrations » : activé par défaut, une seule clé nouvelle, rien d’autre lu ou écrit. */
+async function scenarioVibrationsDefaultOnAndAdditive() {
+  const disk = new Map<string, string>([['92mba:v1', '{"lang":"ar"}']]);
+  const writes: string[] = [];
+  const reads: string[] = [];
+  const storage = {
+    getItem: async (k: string) => {
+      reads.push(k);
+      return disk.get(k) ?? null;
+    },
+    setItem: async (k: string, v: string) => {
+      writes.push(k);
+      disk.set(k, v);
+    },
+  };
+  const key = '92mba:vibrations@v1';
+  const pref = createVibrationPref(storage, key);
+  assert(pref.get() === true, 'vibrations : activé par défaut');
+  await pref.hydrate();
+  assert(pref.get() === true, 'vibrations : clé absente ⇒ activé');
+  pref.set(false);
+  await wait(0);
+  assert(disk.get(key) === 'off' && pref.get() === false, 'vibrations : choix mémorisé');
+  assert(writes.every((k) => k === key) && reads.every((k) => k === key), `vibrations : autres clés touchées ${writes} ${reads}`);
+  assert(disk.get('92mba:v1') === '{"lang":"ar"}', 'vibrations : données existantes intactes');
+  const again = createVibrationPref(storage, key);
+  await again.hydrate();
+  assert(again.get() === false, 'vibrations : relu au démarrage');
+  const broken = createVibrationPref({ getItem: async () => { throw new Error('x'); }, setItem: async () => undefined }, key);
+  await broken.hydrate();
+  assert(broken.get() === true, 'vibrations : stockage illisible ⇒ activé');
+  // Lecture du fichier source (sans importer react-native) : la clé réelle est bien la clé testée.
+  type Fs = { readFileSync: (p: string, enc: 'utf8') => string };
+  const fs = (globalThis as unknown as { process: { getBuiltinModule: (m: string) => Fs } }).process.getBuiltinModule('node:fs');
+  const src = fs.readFileSync('src/lib/haptics.ts', 'utf8');
+  assert(src.includes(`'${key}'`), 'vibrations : clé de haptics.ts');
 }

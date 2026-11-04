@@ -34,7 +34,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "tsx src/lib/passe1.check.ts && node scripts/passe1-scan.mjs",
+    "test": "tsx src/lib/passe1.check.ts && node scripts/passe1-scan.mjs && node scripts/a11y-scan.mjs src",
     "export:web": "expo export -p web && node scripts/pwa.mjs",
     "icons": "python3 scripts/make-icons.py"
   },
