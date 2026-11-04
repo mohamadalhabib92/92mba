@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { usePreventRemove } from 'expo-router/react-navigation';
+import React, { useCallback, useMemo, useState } from 'react';
+import { BackHandler, Platform, Pressable, View } from 'react-native';
 import { Body, Button, Card, Chip, H1, H2, Muted, Row, Screen } from '../components/ui';
 import { useColors } from '../lib/colors';
 import { useI18n } from '../lib/i18n';
@@ -9,8 +10,8 @@ import { allDocs, findDoc } from '../lib/library';
 import { appStore } from '../lib/store';
 import { firstString } from '../lib/textGuard';
 import { haptic } from '../lib/haptics';
-import { FOCUS_DURATIONS, focusTotals, progressOf, remainingMinutes, type FocusRecord, type FocusTarget } from '../lib/focus';
-import { FocusGuide, FocusRing } from '../lib/FocusUI';
+import { FOCUS_DURATIONS, focusTotals, formatClock, progressOf, remainingMinutes, remainingMs, type FocusRecord, type FocusTarget } from '../lib/focus';
+import { FocusEmergency, FocusGuide, FocusRing } from '../lib/FocusUI';
 import { focus, openFocusTarget, startFocusSession, useFocus, useFocusText, useFocusTheme } from '../lib/focusApp';
 import { useFocusNow } from '../lib/focusRuntime';
 
@@ -33,6 +34,17 @@ export default function FocusScreen() {
   const now = useFocusNow(!!active);
   const [minutes, setMinutes] = useState<number>(15);
   const [showGuide, setShowGuide] = useState(false);
+
+  // Retour bloqué sur cet écran PENDANT une session seulement : geste iOS (gestureEnabled),
+  // toute fermeture de l’écran (usePreventRemove = écouteur beforeRemove) et bouton Retour Android.
+  usePreventRemove(!!active, () => undefined);
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android') return undefined;
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => !!focus.get().data.active);
+      return () => sub.remove();
+    }, []),
+  );
 
   const targets = useMemo(() => {
     const docs = allDocs(s.userDocs);
@@ -61,8 +73,9 @@ export default function FocusScreen() {
 
   return (
     <Screen dir={dir}>
+      <Stack.Screen options={{ gestureEnabled: !active }} />
       <Row>
-        <Pressable
+        {active ? null : <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('back')}
           hitSlop={8}
@@ -70,7 +83,7 @@ export default function FocusScreen() {
           style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
         >
           <Ionicons name={dir === 'rtl' ? 'chevron-forward' : 'chevron-back'} size={24} color={colors.text} />
-        </Pressable>
+        </Pressable>}
         <View style={{ flex: 1 }}>
           <H1 accessibilityRole="header">{tx.screenTitle}</H1>
           <Muted>{tx.screenSub}</Muted>
@@ -80,13 +93,22 @@ export default function FocusScreen() {
       {active ? (
         <Card>
           <H2>{tx.activeTitle}</H2>
-          <View style={{ alignItems: 'center', paddingVertical: 8 }}>
-            <FocusRing progress={progressOf(active, now)} size={150} theme={ft}>
-              <H1>{remainingMinutes(active, now)}</H1>
-              <Muted>{fui.minShort}</Muted>
+          <View
+            accessible
+            accessibilityRole="progressbar"
+            accessibilityLabel={`${fui.title} — ${fui.ringLabel}`}
+            accessibilityValue={{ min: 0, max: Math.round(active.durationMs / 60000), now: Math.round(active.durationMs / 60000) - remainingMinutes(active, now), text: fui.remaining(remainingMinutes(active, now)) }}
+            style={{ alignItems: 'center', paddingVertical: 8 }}
+          >
+            <FocusRing progress={progressOf(active, now)} size={190} theme={ft}>
+              <H1 style={{ fontVariant: ['tabular-nums'] }}>{formatClock(remainingMs(active, now))}</H1>
+              <Muted>{fui.remaining(remainingMinutes(active, now))}</Muted>
             </FocusRing>
           </View>
-          <Button label={tx.resume} icon={<Ionicons name="play" size={18} color={colors.onPrimary} />} onPress={() => openFocusTarget(active.target, true)} />
+          <Muted>{fui.calm}</Muted>
+          <Muted>{tx.locked}</Muted>
+          <Button label={tx.resume} icon={<Ionicons name="play" size={18} color={colors.onPrimary} />} onPress={() => openFocusTarget(active.target)} />
+          <FocusEmergency theme={ft} s={fui} remainingMin={remainingMinutes(active, now)} onEmergency={(ms) => focus.emergency(ms, true)} />
         </Card>
       ) : (
         <>
@@ -147,7 +169,7 @@ export default function FocusScreen() {
       <H2>{tx.history}</H2>
       {history.length ? (
         <>
-          <Muted>{tx.totals(totals.sessions, totals.completed, totals.minutes)}</Muted>
+          <Muted>{tx.totals(totals.completed, totals.minutes)}</Muted>
           {[...history].reverse().slice(0, 20).map((r) => (
             <Card key={r.id}>
               <Row style={{ justifyContent: 'space-between' }}>

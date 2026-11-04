@@ -23,7 +23,9 @@ export type FocusScreenText = {
   resume: string;
   history: string;
   historyEmpty: string;
-  totals: (sessions: number, completed: number, minutes: number) => string;
+  /** Totaux : sessions terminées seulement (une sortie d’urgence ne compte pas). */
+  totals: (completed: number, minutes: number) => string;
+  locked: string;
   completed: string;
   emergencyOutcome: string;
   interruptions: (n: number) => string;
@@ -71,6 +73,16 @@ export function focusText(lang: Lang, num: (n: number) => string = String) {
           ? `${n(r.plannedMinutes)} min of focus · ${r.interruptions === 0 ? 'no interruptions' : `${n(r.interruptions)} interruption${r.interruptions > 1 ? 's' : ''}`}`
           : `${n(r.plannedMinutes)} min de concentration · ${r.interruptions === 0 ? 'aucune interruption' : `${n(r.interruptions)} interruption${r.interruptions > 1 ? 's' : ''}`}`,
     successButton: pickL({ fr: 'Continuer', ar: 'تابع', en: 'Continue' }, lang),
+    pillLabel: (clock) => (lang === 'ar' ? `وضع التركيز، الوقت المتبقي ${clock}` : lang === 'en' ? `Focus mode, ${clock} left` : `Mode Focus, temps restant ${clock}`),
+    pillHint: pickL({ fr: 'Revenir au minuteur', ar: 'العودة إلى المؤقت', en: 'Back to the timer' }, lang),
+    notice: (ms, count) => {
+      const m = Math.round(ms / 60000);
+      const short = ms < 60000;
+      if (lang === 'ar') return `مرحبا بعودتك. توقف المؤقت أثناء غيابك (${short ? 'أقل من دقيقة' : `${n(m)} دقيقة`}). الانقطاعات: ${n(count)}.`;
+      if (lang === 'en') return `Welcome back. The timer was paused while you were away (${short ? 'under a minute' : `${n(m)} min`}). Interruptions: ${n(count)}.`;
+      return `Bon retour. Le minuteur était en pause pendant votre absence (${short ? 'moins d’une minute' : `${n(m)} min`}). Interruptions : ${n(count)}.`;
+    },
+    noticeOk: pickL({ fr: 'OK', ar: 'حسنا', en: 'OK' }, lang),
     num: n,
   };
 
@@ -139,19 +151,21 @@ export function focusText(lang: Lang, num: (n: number) => string = String) {
       pickL({ fr: 'Plein écran, sans barre d’onglets : la lecture continue dedans.', ar: 'شاشة كاملة بلا شريط تبويب: تستمر القراءة داخلها.', en: 'Full screen, no tab bar: your reading carries on inside it.' }, lang),
       pickL({ fr: 'L’écran reste allumé et les messages de l’app sont en sourdine.', ar: 'تبقى الشاشة مضاءة وتكتم رسائل التطبيق.', en: 'The screen stays on and the app’s messages are muted.' }, lang),
       pickL({ fr: 'Avant la fin, on ne sort que par la « Sortie d’urgence » (maintenir 3 s, puis confirmer).', ar: 'قبل النهاية لا خروج إلا بـ«الخروج الطارئ» (ضغط مطول ثلاث ثوان ثم تأكيد).', en: 'Before the end, the only way out is “Emergency exit” (hold 3 s, then confirm).' }, lang),
-      pickL({ fr: 'Le minuteur continue si vous quittez l’app ; chaque sortie est notée.', ar: 'يستمر المؤقت إن غادرت التطبيق، وتسجل كل مغادرة.', en: 'The timer keeps running if you leave the app; each exit is noted.' }, lang),
+      pickL({ fr: 'Si vous quittez l’app, le minuteur se met en pause : seul le temps passé ici compte. Chaque sortie est notée.', ar: 'يتوقف المؤقت إن غادرت التطبيق، ولا يحسب إلا الوقت الذي تقضيه هنا؛ وتسجل كل مغادرة.', en: 'If you leave the app, the timer pauses: only time spent here counts. Each exit is noted.' }, lang),
+      pickL({ fr: 'Une sortie d’urgence reste dans l’historique mais ne compte pas dans vos totaux.', ar: 'يبقى الخروج الطارئ في السجل، لكنه لا يحسب في مجموعك.', en: 'An emergency exit stays in the history but doesn’t count in your totals.' }, lang),
     ],
     start: (m) => (lang === 'ar' ? `ابدأ: ${n(m)} دقيقة` : lang === 'en' ? `Start ${n(m)} min` : `Lancer ${n(m)} min`),
     activeTitle: pickL({ fr: 'Session en cours', ar: 'جلسة جارية', en: 'Session in progress' }, lang),
     resume: pickL({ fr: 'Reprendre', ar: 'استئناف', en: 'Resume' }, lang),
     history: pickL({ fr: 'Vos sessions', ar: 'جلساتك', en: 'Your sessions' }, lang),
     historyEmpty: pickL({ fr: 'Aucune session pour l’instant.', ar: 'لا توجد جلسات بعد.', en: 'No sessions yet.' }, lang),
-    totals: (s, c, m) =>
+    totals: (c, m) =>
       lang === 'ar'
-        ? `الجلسات: ${n(s)} · المكتملة: ${n(c)} · ${n(m)} دقيقة`
+        ? `الجلسات المكتملة: ${n(c)} · ${n(m)} دقيقة`
         : lang === 'en'
-          ? `${n(s)} sessions · ${n(c)} completed · ${n(m)} min`
-          : `${n(s)} session${s > 1 ? 's' : ''} · ${n(c)} terminée${c > 1 ? 's' : ''} · ${n(m)} min`,
+          ? `${n(c)} completed session${c === 1 ? '' : 's'} · ${n(m)} min focused`
+          : `${n(c)} session${c > 1 ? 's' : ''} terminée${c > 1 ? 's' : ''} · ${n(m)} min de concentration`,
+    locked: pickL({ fr: 'Retour désactivé pendant la session. Votre lecture reste accessible.', ar: 'الرجوع معطل أثناء الجلسة، وتبقى قراءتك متاحة.', en: 'Back is turned off during the session. Your reading stays available.' }, lang),
     completed: pickL({ fr: 'Terminée', ar: 'مكتملة', en: 'Completed' }, lang),
     emergencyOutcome: pickL({ fr: 'Sortie d’urgence', ar: 'خروج طارئ', en: 'Emergency exit' }, lang),
     interruptions: (c) => (lang === 'ar' ? `الانقطاعات: ${n(c)}` : lang === 'en' ? `${n(c)} interruption${c === 1 ? '' : 's'}` : `${n(c)} interruption${c > 1 ? 's' : ''}`),

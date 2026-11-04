@@ -8,8 +8,8 @@ import { nativeDriver } from './motion';
 import { EMERGENCY_HOLD_MS, holdDone, holdProgress, type FocusRecord } from './focus';
 
 /**
- * Mode Focus — composants visuels partagés (anneau, barre de session,
- * sortie d’urgence, moment de réussite, guide). Thème et textes injectés par l’app.
+ * Mode Focus — composants visuels partagés (anneau, pastille mm:ss,
+ * message de pause, sortie d’urgence, moment de réussite, guide). Thème et textes injectés par l’app.
  */
 export type FocusTheme = {
   bg: string;
@@ -51,6 +51,12 @@ export type FocusStrings = {
   successTitle: string;
   successText: (r: FocusRecord) => string;
   successButton: string;
+  /** Pastille mm:ss dans le contenu : libellé lu (temps restant) et indice (revenir au minuteur). */
+  pillLabel: (clock: string) => string;
+  pillHint: string;
+  /** Message discret au retour dans l’app (pause pendant l’absence). */
+  notice: (awayMs: number, interruptions: number) => string;
+  noticeOk: string;
   /** Chiffres affichés (latins ou indo-arabes selon l’app). */
   num: (n: number) => string;
 };
@@ -185,63 +191,22 @@ function ConfirmLeave({ visible, theme, s, remainingMin, onStay, onLeave }: { vi
   );
 }
 
-/**
- * Barre de session en bas de l’écran (remplace la barre d’onglets) :
- * anneau + minutes restantes, phrase calme, sortie d’urgence.
- */
-export function FocusDock({
+/** Sortie d’urgence complète (appui long ≈ 3 s puis confirmation) — affichée sur l’écran Focus. */
+export function FocusEmergency({
   theme,
   s,
-  progress,
   remainingMin,
-  plannedMin,
   onEmergency,
 }: {
   theme: FocusTheme;
   s: FocusStrings;
-  progress: number;
   remainingMin: number;
-  plannedMin: number;
   onEmergency: (heldMs: number) => void;
 }) {
-  const insets = useSafeAreaInsets();
   const [confirm, setConfirm] = useState<number | null>(null);
-  const stack = theme.largeText;
-  const elapsedMin = Math.max(0, plannedMin - remainingMin);
   return (
-    <View
-      style={{
-        backgroundColor: theme.surface,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: theme.border,
-        paddingTop: 10,
-        paddingBottom: Math.max(insets.bottom, 10),
-        paddingHorizontal: 14,
-        direction: theme.rtl ? 'rtl' : 'ltr',
-      }}
-    >
-      <View style={{ flexDirection: stack ? 'column' : 'row', alignItems: stack ? 'stretch' : 'center', gap: 12, maxWidth: 820, width: '100%', alignSelf: 'center' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: stack ? undefined : 1 }}>
-          <View
-            accessible
-            accessibilityRole="progressbar"
-            accessibilityLabel={`${s.title} — ${s.ringLabel}`}
-            accessibilityValue={{ min: 0, max: plannedMin, now: elapsedMin, text: s.remaining(remainingMin) }}
-          >
-            <FocusRing progress={progress} size={52} theme={theme}>
-              <Text style={{ color: theme.text, fontWeight: '800', fontSize: 15 , ...faceOf(theme, '800') }} allowFontScaling={false}>{s.num(remainingMin)}</Text>
-            </FocusRing>
-          </View>
-          <View style={{ flex: 1, gap: 2 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <BreathDot theme={theme} />
-              <Text style={{ color: theme.text, fontWeight: '700', fontSize: 14 * theme.fontScale, textAlign: theme.rtl ? 'right' : 'left' , ...faceOf(theme, '700') }}>{s.title} · {s.remaining(remainingMin)}</Text>
-            </View>
-            <Text style={{ color: theme.muted, fontSize: 13 * theme.fontScale, lineHeight: 18 * theme.fontScale, textAlign: theme.rtl ? 'right' : 'left' , ...faceOf(theme, '400') }}>{s.calm}</Text>
-          </View>
-        </View>
-        <EmergencyHold theme={theme} s={s} onHeld={(ms) => setConfirm(ms)} />
-      </View>
+    <View style={{ gap: 6 }}>
+      <EmergencyHold theme={theme} s={s} onHeld={(ms) => setConfirm(ms)} />
       <ConfirmLeave
         visible={confirm !== null}
         theme={theme}
@@ -255,6 +220,91 @@ export function FocusDock({
           announce(s.left);
         }}
       />
+    </View>
+  );
+}
+
+/** Bande basse (pastille et/ou message) : ne recouvre pas le contenu, respecte la zone sûre. */
+export function FocusStrip({ theme, children }: { theme: FocusTheme; children: React.ReactNode }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      style={{
+        backgroundColor: theme.bg,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: theme.border,
+        paddingTop: 8,
+        paddingBottom: Math.max(insets.bottom, 8),
+        paddingHorizontal: 14,
+        gap: 8,
+        direction: theme.rtl ? 'rtl' : 'ltr',
+      }}
+    >
+      <View style={{ maxWidth: 820, width: '100%', alignSelf: 'center', gap: 8, alignItems: 'center' }}>{children}</View>
+    </View>
+  );
+}
+
+/** Pastille flottante mm:ss : temps restant, un appui ramène au minuteur. */
+export function FocusPill({ theme, s, clock, onPress }: { theme: FocusTheme; s: FocusStrings; clock: string; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={s.pillLabel(clock)}
+      accessibilityHint={s.pillHint}
+      onPress={() => {
+        haptic.tap();
+        onPress();
+      }}
+      hitSlop={6}
+      style={({ pressed }) => ({
+        minHeight: 44,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        borderRadius: 999,
+        backgroundColor: theme.surface,
+        borderWidth: 1,
+        borderColor: theme.accent,
+        opacity: pressed ? 0.85 : 1,
+        shadowColor: '#000',
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 3,
+      })}
+    >
+      <BreathDot theme={theme} />
+      <Text
+        style={{ color: theme.text, fontWeight: '800', fontSize: 16 * Math.min(theme.fontScale, 1.6), fontVariant: ['tabular-nums'], ...faceOf(theme, '800') }}
+      >
+        {clock}
+      </Text>
+      <Ionicons name="timer-outline" size={18} color={theme.accent} />
+    </Pressable>
+  );
+}
+
+/** Message discret au retour : le minuteur était en pause pendant l’absence. */
+export function FocusNotice({ theme, s, text, onClose }: { theme: FocusTheme; s: FocusStrings; text: string; onClose: () => void }) {
+  return (
+    <View
+      accessibilityLiveRegion="polite"
+      style={{ width: '100%', flexDirection: theme.largeText ? 'column' : 'row', alignItems: theme.largeText ? 'stretch' : 'center', gap: 10, padding: 12, borderRadius: 14, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }}
+    >
+      <Ionicons name="pause-circle-outline" size={22} color={theme.accent} />
+      <Text style={{ flex: theme.largeText ? undefined : 1, color: theme.text, fontSize: 14 * theme.fontScale, lineHeight: 20 * theme.fontScale, textAlign: theme.rtl ? 'right' : 'left', ...faceOf(theme, '400') }}>{text}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={s.noticeOk}
+        onPress={onClose}
+        hitSlop={6}
+        style={{ minHeight: 44, minWidth: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: theme.accent }}
+      >
+        <Text style={{ color: theme.onAccent, fontWeight: '700', fontSize: 14 * theme.fontScale, ...faceOf(theme, '700') }}>{s.noticeOk}</Text>
+      </Pressable>
     </View>
   );
 }

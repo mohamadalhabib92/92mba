@@ -1,7 +1,7 @@
 /**
  * Cas de test du minuteur Mode Focus (sans React Native).
- * Exécutés par `npm test` : durée, arrière-plan / reprise, minimum imposé,
- * sortie d’urgence, persistance de l’historique.
+ * Exécutés par `npm test` : durée, pause en arrière-plan / reprise, retour bloqué,
+ * minimum imposé, sortie d’urgence (non comptée), persistance de l’historique.
  */
 import {
   EMERGENCY_HOLD_MS,
@@ -13,11 +13,15 @@ import {
   elapsedMs,
   emergencyExit,
   emptyFocusData,
+  focusNav,
+  focusTotals,
+  formatClock,
   holdDone,
   holdProgress,
   isComplete,
   onBackground,
   onForeground,
+  pausedMs,
   parseFocusData,
   pushHistory,
   remainingMinutes,
@@ -92,30 +96,63 @@ export function focusCases(key: string, otherKeys: string[]): { name: string; ru
       },
     },
     {
-      name: 'arrière-plan / reprise : le temps continue et chaque sortie est une interruption',
+      name: 'arrière-plan : le minuteur se met en PAUSE, reprend au retour, chaque sortie est une interruption',
       run() {
         let s = startFocus(10, T0, undefined, 'bg');
         s = onBackground(s, T0 + 2 * MIN);
         eq(s.interruptions.length, 1, 'une interruption');
         s = onBackground(s, T0 + 3 * MIN);
         eq(s.interruptions.length, 1, 'double événement : pas de doublon');
-        eq(awayMs(s, T0 + 4 * MIN), 2 * MIN, 'temps hors app en cours');
+        eq(pausedMs(s, T0 + 4 * MIN), 2 * MIN, 'pause en cours');
+        eq(elapsedMs(s, T0 + 4 * MIN), 2 * MIN, 'figé pendant la pause');
+        eq(elapsedMs(s, T0 + 50 * MIN), 2 * MIN, 'toujours figé longtemps après');
+        ok(!isComplete(s, T0 + 50 * MIN), 'jamais terminé en arrière-plan');
+        eq(completeFocus(s, T0 + 50 * MIN), null, 'pas de fin hors de l’app');
         s = onForeground(s, T0 + 5 * MIN);
         eq(s.backgroundSince, null, 'retour au premier plan');
         eq(s.interruptions[0], { at: T0 + 2 * MIN, ms: 3 * MIN }, 'durée de l’interruption');
         eq(onForeground(s, T0 + 6 * MIN), s, 'premier plan sans sortie : inchangé');
-        eq(elapsedMs(s, T0 + 5 * MIN), 5 * MIN, 'le temps hors app compte');
+        eq(elapsedMs(s, T0 + 5 * MIN), 2 * MIN, 'le temps hors app NE compte PAS');
+        eq(elapsedMs(s, T0 + 6 * MIN), 3 * MIN, 'le minuteur repart au retour');
+        eq(remainingMs(s, T0 + 6 * MIN), 7 * MIN, 'reste juste après la reprise');
         s = onForeground(onBackground(s, T0 + 7 * MIN), T0 + 7 * MIN + 30_000);
-        eq(s.interruptions.length, 2, 'deuxième interruption');
+        eq(s.interruptions.length, 2, 'deuxième interruption comptée');
         eq(awayMs(s, T0 + 8 * MIN), 3 * MIN + 30_000, 'total hors app');
-        // Revenir après la fin : la session est terminée, temps hors app plafonné à la fenêtre.
-        s = onBackground(s, T0 + 9 * MIN);
-        const r = completeFocus(s, T0 + 40 * MIN);
-        ok(r, 'terminée au retour');
+        // 10 min de concentration atteintes à T0 + 13 min 30 s (3 min 30 s de pause).
+        ok(!isComplete(s, T0 + 13 * MIN + 29_999), 'pas fini avant la durée de concentration');
+        const r = completeFocus(s, T0 + 20 * MIN);
+        ok(r, 'terminée');
         eq(r.outcome, 'completed', 'issue');
-        eq(r.awayMs, 3 * MIN + 30_000 + MIN, 'temps hors app borné à la session');
-        eq(r.interruptions, 3, 'trois interruptions');
-        eq(r.endedAt, T0 + 10 * MIN, 'fin = heure prévue');
+        eq(r.elapsedMs, 10 * MIN, 'concentration = durée choisie');
+        eq(r.awayMs, 3 * MIN + 30_000, 'pauses enregistrées');
+        eq(r.interruptions, 2, 'deux interruptions');
+        eq(r.endedAt, T0 + 13 * MIN + 30_000, 'fin = durée + pauses');
+        eq(formatClock(9 * MIN + 5_000), '09:05', 'pastille mm:ss');
+        eq(formatClock(1), '00:01', 'arrondi supérieur');
+        eq(formatClock(-5), '00:00', 'jamais négatif');
+        eq(formatClock(30 * MIN, (n) => String(n).replace(/\d/g, (d) => '٠١٢٣٤٥٦٧٨٩'[+d])), '٣٠:٠٠', 'chiffres localisés');
+      },
+    },
+    {
+      name: 'retour bloqué : seulement sur l’écran Focus et seulement pendant une session',
+      run() {
+        const content = ['/lesson', '/drill', '/doc'];
+        eq(focusNav('/focus', true, content), { blockBack: true, showPill: false, redirect: null }, 'Focus actif : retour bloqué');
+        eq(focusNav('/focus/', true, content).blockBack, true, 'barre finale ignorée');
+        eq(focusNav('/focus', false, content), { blockBack: false, showPill: false, redirect: null }, 'sans session : retour libre');
+        eq(focusNav('/lesson/u1-l1', true, content), { blockBack: false, showPill: true, redirect: null }, 'contenu accessible + pastille');
+        eq(focusNav('/drill', true, content).showPill, true, 'révision accessible');
+        eq(focusNav('/doc/abc', true, content).redirect, null, 'lecteur accessible');
+        eq(focusNav('/learn', true, content), { blockBack: false, showPill: false, redirect: '/focus' }, 'autre écran ⇒ retour au minuteur');
+        eq(focusNav('/', true, content).redirect, '/focus', 'accueil ⇒ retour au minuteur');
+        eq(focusNav('/lessonx', true, content).redirect, '/focus', 'préfixe strict');
+        eq(focusNav('/settings', false, content).redirect, null, 'sans session : aucune redirection');
+        // Le contrôleur ne termine pas la session quand on quitte un contenu : seule la fin ou l’urgence la ferment.
+        let s = startFocus(10, T0, { kind: 'lesson', id: 'u1-l1' }, 'nav');
+        const leave = requestLeave(s, T0 + 5 * MIN);
+        ok(!leave.ok && leave.reason === 'minimum', 'sortie ordinaire refusée : session toujours active');
+        s = onForeground(onBackground(s, T0 + 6 * MIN), T0 + 7 * MIN);
+        ok(!completeFocus(s, T0 + 7 * MIN), 'toujours active');
       },
     },
     {
@@ -148,13 +185,35 @@ export function focusCases(key: string, otherKeys: string[]): { name: string; ru
         ok(out.ok, 'sortie acceptée');
         if (out.ok) {
           eq(out.record.outcome, 'emergency', 'issue urgence');
-          eq(out.record.elapsedMs, 4 * MIN, 'temps réel');
+          eq(out.record.elapsedMs, 2 * MIN, 'concentration réelle (pause exclue)');
           eq(out.record.awayMs, 2 * MIN, 'arrière-plan clos');
           eq(out.record.interruptions, 1, 'interruption notée');
           eq(out.record.target, { kind: 'doc', id: 'd' }, 'cible gardée');
         }
         const after = emergencyExit(s, T0 + 31 * MIN, { heldMs: 3200, confirmed: true });
         ok(after.ok && after.record.outcome === 'completed', 'après la fin : compte comme terminée');
+      },
+    },
+    {
+      name: 'sortie d’urgence : pas d’écran de réussite, ne compte pas dans les totaux',
+      async run() {
+        const mem = memoryStorage();
+        let now = T0;
+        const c = createFocusController(mem.storage, key, () => now);
+        await c.hydrate();
+        c.start(10);
+        now += 10 * MIN;
+        ok(c.tick()?.outcome === 'completed', 'une session terminée');
+        c.dismissFinished();
+        c.start(20);
+        now += 5 * MIN;
+        ok(c.emergency(3100, true).ok, 'sortie d’urgence');
+        eq(c.get().finished, null, 'aucun écran de réussite');
+        eq(c.get().data.active, null, 'session close');
+        const h = c.get().data.history;
+        eq(h.map((r) => r.outcome), ['completed', 'emergency'], 'urgence gardée dans l’historique');
+        eq(focusTotals(h), { completed: 1, minutes: 10 }, 'totaux : sessions terminées seulement');
+        eq(focusTotals([h[1]]), { completed: 0, minutes: 0 }, 'urgence seule : 0');
       },
     },
     {
@@ -173,11 +232,14 @@ export function focusCases(key: string, otherKeys: string[]): { name: string; ru
         c.background();
         now += MIN;
         c.foreground();
-        now += 5 * MIN;
-        eq(c.tick(), null, 'pas encore fini');
+        ok(c.get().notice && c.get().notice?.awayMs === MIN && c.get().notice?.interruptions === 1, 'message discret au retour');
+        c.dismissNotice();
+        eq(c.get().notice, null, 'message fermé');
+        now += 6 * MIN;
+        eq(c.tick(), null, 'pas encore fini (la pause ne compte pas)');
         now += MIN;
         const done = c.tick();
-        ok(done && done.outcome === 'completed', 'fin à 10 min');
+        ok(done && done.outcome === 'completed', 'fin à 10 min de concentration');
         ok(c.get().finished?.id === done.id, 'moment de réussite à afficher');
         c.dismissFinished();
         c.start(15);
@@ -200,7 +262,7 @@ export function focusCases(key: string, otherKeys: string[]): { name: string; ru
       },
     },
     {
-      name: 'reprise après fermeture de l’app : session en cours ou terminée entre-temps',
+      name: 'reprise après fermeture de l’app : la pause tient, puis fin enregistrée une seule fois',
       async run() {
         const mem = memoryStorage();
         let now = T0;
@@ -209,19 +271,20 @@ export function focusCases(key: string, otherKeys: string[]): { name: string; ru
         c.start(10);
         now += MIN;
         c.background();
+        now += 30 * MIN;
+        eq(c.tick(), null, 'pas de fin pendant la pause');
         await flush();
-        // Relance 2 min plus tard : la session continue, l’interruption est close.
-        now += 2 * MIN;
+        // Relance 30 min plus tard : la session est en pause depuis la sortie, l’interruption est close.
         const c2 = createFocusController(mem.storage, key, () => now);
         await c2.hydrate();
         const a = c2.get().data.active;
         ok(a && a.backgroundSince === null, 'session reprise');
-        eq(a.interruptions[0]?.ms, 2 * MIN, 'interruption close à la reprise');
-        eq(remainingMinutes(a, now), 7, 'temps restant juste');
-        c2.background();
+        eq(a.interruptions[0]?.ms, 30 * MIN, 'interruption close à la reprise');
+        eq(remainingMinutes(a, now), 9, 'temps restant : la pause ne compte pas');
+        eq(c2.get().notice?.interruptions, 1, 'message discret à la relance');
         await flush();
-        // Relance après la fin : terminée, enregistrée, moment de réussite.
-        now += 60 * MIN;
+        // App fermée au premier plan (aucun événement d’arrière-plan) puis relancée après la fin.
+        now += 9 * MIN;
         const c3 = createFocusController(mem.storage, key, () => now);
         await c3.hydrate();
         eq(c3.get().data.active, null, 'plus de session active');

@@ -28,7 +28,7 @@ export default function Reader() {
   const tint = useTint();
   const large = useLargeText();
   const { toast } = useFeedback();
-  // Mode Focus : la lecture continue dedans ; la barre de session gère le bas de l’écran.
+  // Mode Focus : la lecture continue dedans ; la bande de la pastille mm:ss gère le bas de l’écran.
   const focusActive = !!useFocus().data.active;
   const { screen: ftx } = useFocusText();
   const s = appStore.useStore();

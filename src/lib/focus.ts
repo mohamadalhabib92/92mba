@@ -2,11 +2,17 @@
  * Mode Focus — logique pure (aucun import React Native), testée unitairement.
  *
  * - Durées proposées : 10, 15, 20 ou 30 min (10 min minimum).
- * - Minuteur basé sur l’horloge murale (horodatages) : il continue quand l’app
- *   passe en arrière-plan ou est fermée, et reprend juste au retour.
+ * - Minuteur basé sur l’horloge murale (horodatages) : le temps passé HORS de
+ *   l’app (arrière-plan) met le minuteur en PAUSE et ne compte pas. Au retour,
+ *   un message discret signale l’interruption.
  * - Avant la fin, on ne sort que par la « Sortie d’urgence » (appui long ≈ 3 s,
  *   puis confirmation).
  * - Chaque passage en arrière-plan est noté comme une interruption.
+ * - Une sortie d’urgence est gardée dans l’historique mais ne compte ni dans
+ *   les totaux (seules les sessions terminées comptent ; le Mode Focus n’a pas de série).
+ * - Navigation : pendant une session, l’écran Focus ne se ferme pas (Retour
+ *   bloqué) ; le contenu (leçon, lecteur) reste accessible ; tout autre écran
+ *   ramène à l’écran Focus.
  * - Historique stocké sous une NOUVELLE clé dédiée : aucune clé existante n’est
  *   lue, migrée, réécrite ou supprimée.
  */
@@ -41,7 +47,7 @@ export type FocusRecord = {
   startedAt: number;
   endedAt: number;
   plannedMinutes: number;
-  /** Temps écoulé dans la session (arrière-plan compris, plafonné à la durée). */
+  /** Temps de concentration (pauses exclues, plafonné à la durée). */
   elapsedMs: number;
   /** Temps passé hors de l’app pendant la session. */
   awayMs: number;
@@ -68,9 +74,16 @@ export function startFocus(minutes: number, now: number, target?: FocusTarget, i
   };
 }
 
-/** Temps écoulé selon l’horloge murale, borné à [0, durée] (horloge reculée ⇒ 0). */
+/** Temps en pause (hors de l’app) : interruptions closes + interruption en cours. */
+export function pausedMs(s: FocusSession, now: number): number {
+  let total = 0;
+  for (const it of s.interruptions) total += it.ms !== undefined ? it.ms : Math.max(0, now - it.at);
+  return total;
+}
+
+/** Temps de concentration : horloge murale moins les pauses, borné à [0, durée] (horloge reculée ⇒ 0). */
 export function elapsedMs(s: FocusSession, now: number): number {
-  return Math.min(s.durationMs, Math.max(0, now - s.startedAt));
+  return Math.min(s.durationMs, Math.max(0, now - s.startedAt - pausedMs(s, now)));
 }
 
 export function remainingMs(s: FocusSession, now: number): number {
@@ -82,7 +95,16 @@ export function progressOf(s: FocusSession, now: number): number {
 }
 
 export function isComplete(s: FocusSession, now: number): boolean {
-  return now - s.startedAt >= s.durationMs;
+  return now - s.startedAt - pausedMs(s, now) >= s.durationMs;
+}
+
+/** Temps restant « mm:ss » (secondes arrondies au supérieur). */
+export function formatClock(ms: number, num: (n: number) => string = String): string {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(total / 60);
+  const sec = total % 60;
+  const two = (v: number) => (v < 10 ? num(0) + num(v) : num(v));
+  return `${two(m)}:${two(sec)}`;
 }
 
 /** Minutes restantes à afficher (arrondi supérieur : « 1 min » jusqu’à la fin). */
@@ -90,13 +112,13 @@ export function remainingMinutes(s: FocusSession, now: number): number {
   return Math.ceil(remainingMs(s, now) / MINUTE);
 }
 
-/** L’app passe en arrière-plan : une interruption est notée (une seule par sortie). */
+/** L’app passe en arrière-plan : le minuteur se met en pause, une interruption est notée (une seule par sortie). */
 export function onBackground(s: FocusSession, now: number): FocusSession {
   if (s.backgroundSince !== null) return s;
   return { ...s, backgroundSince: now, interruptions: [...s.interruptions, { at: now }] };
 }
 
-/** Retour au premier plan : on ferme l’interruption en cours avec sa durée. */
+/** Retour au premier plan : on ferme l’interruption en cours avec sa durée (le minuteur repart). */
 export function onForeground(s: FocusSession, now: number): FocusSession {
   if (s.backgroundSince === null) return s;
   const since = s.backgroundSince;
@@ -106,20 +128,14 @@ export function onForeground(s: FocusSession, now: number): FocusSession {
   return { ...s, backgroundSince: null, interruptions: list };
 }
 
-/** Temps passé hors de l’app, limité à la fenêtre de la session. */
+/** Temps passé hors de l’app pendant la session (= temps en pause). */
 export function awayMs(s: FocusSession, now: number): number {
-  const end = s.startedAt + s.durationMs;
-  let total = 0;
-  for (const it of s.interruptions) {
-    const from = Math.max(s.startedAt, it.at);
-    const to = Math.min(end, it.ms !== undefined ? it.at + it.ms : now);
-    if (to > from) total += to - from;
-  }
-  return total;
+  return pausedMs(s, now);
 }
 
 function toRecord(s: FocusSession, now: number, outcome: FocusOutcome): FocusRecord {
-  const endedAt = outcome === 'completed' ? s.startedAt + s.durationMs : Math.max(s.startedAt, now);
+  // Terminée : l’instant où la durée de concentration a été atteinte (pauses comprises).
+  const endedAt = outcome === 'completed' ? Math.min(now, s.startedAt + s.durationMs + pausedMs(s, now)) : Math.max(s.startedAt, now);
   return {
     id: s.id,
     startedAt: s.startedAt,
@@ -280,11 +296,36 @@ export function resumeFocus(data: FocusData, now: number): { data: FocusData; fi
   return { data: { ...data, active }, finished: null };
 }
 
+/** Totaux : seules les sessions TERMINÉES comptent (une sortie d’urgence ne compte pas). */
 export function focusTotals(history: FocusRecord[]) {
   const completed = history.filter((r) => r.outcome === 'completed');
   return {
-    sessions: history.length,
     completed: completed.length,
     minutes: Math.round(completed.reduce((n, r) => n + r.elapsedMs, 0) / MINUTE),
   };
+}
+
+/* ---------- Navigation pendant une session ---------- */
+
+export const FOCUS_PATH = '/focus';
+
+export type FocusNav = {
+  /** Retour (bouton Android, geste iOS, beforeRemove) bloqué sur l’écran Focus. */
+  blockBack: boolean;
+  /** Pastille mm:ss affichée dans le contenu (leçon, lecteur). */
+  showPill: boolean;
+  /** Écran hors contenu pendant la session ⇒ retour à l’écran Focus. */
+  redirect: string | null;
+};
+
+const clean = (p: string) => (p.length > 1 ? p.replace(/\/+$/, '') : p) || '/';
+const under = (p: string, prefix: string) => p === prefix || p.startsWith(prefix + '/');
+
+/** Règle de navigation : `contentPrefixes` = écrans de contenu autorisés pendant la session. */
+export function focusNav(pathname: string, active: boolean, contentPrefixes: readonly string[]): FocusNav {
+  if (!active) return { blockBack: false, showPill: false, redirect: null };
+  const p = clean(pathname || '/');
+  if (p === FOCUS_PATH) return { blockBack: true, showPill: false, redirect: null };
+  if (contentPrefixes.some((c) => under(p, c))) return { blockBack: false, showPill: true, redirect: null };
+  return { blockBack: false, showPill: false, redirect: FOCUS_PATH };
 }

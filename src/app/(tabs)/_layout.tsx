@@ -9,7 +9,7 @@ import { useFocus } from '../../lib/focusApp';
 export default function TabsLayout() {
   const colors = useColors();
   const { t } = useI18n();
-  // Mode Focus : pas de barre d’onglets pendant la session (la barre de session la remplace).
+  // Mode Focus : pas de barre d’onglets pendant la session (on reste dans l’écran Focus ou dans le contenu).
   const focusActive = !!useFocus().data.active;
   const icon =
     (name: keyof typeof Ionicons.glyphMap) =>
