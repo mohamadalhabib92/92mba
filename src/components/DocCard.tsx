@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { useI18n } from '../lib/i18n';
 import { CATEGORY_LABELS, Doc, licenseBadgeLabel, paginate, readingMinutes } from '../lib/library';
 import type { Progress } from '../lib/store';
-import { colors } from '../theme';
+
 import { Badge, Card, H3, Muted, ProgressBar, Row } from './ui';
+import { useColors, makeStyles } from '../lib/colors';
 
 const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   strategy: 'compass-outline',
@@ -18,6 +19,8 @@ const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 };
 
 export function DocCard({ doc, progress, onPress }: { doc: Doc; progress?: Progress; onPress: () => void }) {
+  const colors = useColors();
+  const styles = useStyles();
   const { t, lang } = useI18n();
   const pages = paginate(doc).length;
   const pct = progress ? Math.round(((progress.page + 1) / Math.max(1, progress.pages)) * 100) : 0;
@@ -56,15 +59,15 @@ export function DocCard({ doc, progress, onPress }: { doc: Doc; progress?: Progr
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   cover: {
     width: 56,
     height: 72,
     borderRadius: 10,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.brand,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
   },
-  lang: { color: '#C8CFDF', fontSize: 10, fontWeight: '700' },
-});
+  lang: { color: colors.onBrandMuted, fontSize: 10, fontWeight: '700' },
+}));

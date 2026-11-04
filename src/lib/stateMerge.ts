@@ -21,6 +21,8 @@ export type AppState = {
   bookmarks: Record<string, number[]>;
   searchHistory: string[];
   userDocs: Doc[];
+  /** Introduction vue (ou passée). Les profils existants sont considérés comme déjà accueillis. */
+  onboarded: boolean;
 };
 
 export function defaultAppState(): AppState {
@@ -35,6 +37,7 @@ export function defaultAppState(): AppState {
     bookmarks: {},
     searchHistory: [],
     userDocs: [],
+    onboarded: false,
   };
 }
 
@@ -122,6 +125,8 @@ export function mergeStored(stored: Partial<AppState> | null | undefined): AppSt
     bookmarks: sanitizeBookmarks(stored.bookmarks),
     searchHistory: cleanHistory(stored.searchHistory),
     userDocs: sanitizeUserDocs(stored.userDocs),
+    // Un profil déjà enregistré sans ce champ = utilisateur existant : pas d’introduction.
+    onboarded: stored.onboarded !== false,
   };
 }
 
@@ -171,5 +176,6 @@ export function mergeLate(current: AppState, stored: Partial<AppState>, touched?
     bookmarks,
     searchHistory: cleanHistory([...current.searchHistory, ...saved.searchHistory]),
     userDocs: [...docs.values()],
+    onboarded: current.onboarded || saved.onboarded,
   };
 }

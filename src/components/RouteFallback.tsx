@@ -3,8 +3,9 @@ import { Pressable, Text, View } from 'react-native';
 import { dictionaries, type Lang } from '../i18n/strings';
 import { reportCrash } from '../lib/features';
 import { appStore } from '../lib/store';
-import { colors, space } from '../theme';
+import { space } from '../theme';
 import { BootSkeleton } from './ui';
+import { useColors } from '../lib/colors';
 
 function langOf(): Lang {
   try {
@@ -18,6 +19,7 @@ function langOf(): Lang {
 
 /** Signature attendue par expo-router : pas de pile, pas de message technique en production. */
 export function ErrorBoundary({ error, retry }: { error: Error; retry: () => void | Promise<void> }) {
+  const colors = useColors();
   const lang = langOf();
   const copy = dictionaries[lang];
   useEffect(() => {

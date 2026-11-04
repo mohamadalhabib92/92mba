@@ -129,6 +129,12 @@ const fr = {
   confirmFreshStart: 'Appuyez encore pour repartir de zéro',
   freshStartHint: 'Une copie vérifiée est conservée. L’original sera ensuite effacé de cet appareil.',
   resetPending: 'Lecture des données en cours. Rien n’est effacé tant que la copie n’est pas vérifiée.',
+  obWelcome: 'Bienvenue dans 92\'MBA',
+  skip: 'Passer',
+  start: 'Commencer',
+  docAdded: 'Document ajouté',
+  bookmarkAdded: 'Signet ajouté',
+  bookmarkRemoved: 'Signet retiré',
 };
 type Dict = Record<keyof typeof fr, string>;
 
@@ -254,6 +260,12 @@ const en: Dict = {
   confirmFreshStart: 'Tap again to start over',
   freshStartHint: 'A verified copy is kept. The original will then be erased from this device.',
   resetPending: 'Still reading saved data. Nothing is erased until the copy is verified.',
+  obWelcome: 'Welcome to 92\'MBA',
+  skip: 'Skip',
+  start: 'Get started',
+  docAdded: 'Document added',
+  bookmarkAdded: 'Bookmark added',
+  bookmarkRemoved: 'Bookmark removed',
 };
 
 const ar: Dict = {
@@ -378,6 +390,12 @@ const ar: Dict = {
   confirmFreshStart: 'اضغط مرة أخرى للبدء من جديد',
   freshStartHint: 'نسخة مؤكدة محفوظة. سيُحذف الأصل بعد ذلك من هذا الجهاز.',
   resetPending: 'ما زالت قراءة البيانات جارية. لا يُحذف شيء قبل التحقق من النسخة.',
+  obWelcome: 'مرحبًا بك في 92\'MBA',
+  skip: 'تخطي',
+  start: 'ابدأ',
+  docAdded: 'تمت إضافة المستند',
+  bookmarkAdded: 'تمت إضافة العلامة',
+  bookmarkRemoved: 'تمت إزالة العلامة',
 };
 
 export const dictionaries: Record<Lang, Dict> = { fr, en, ar };

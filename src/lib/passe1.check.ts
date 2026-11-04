@@ -1,4 +1,4 @@
-import { highlightColors, badgeTones, colors, contrastRatio, readerThemes, readingColumnWidth, snapFontScale, snapLineHeight, snapMargin } from '../theme';
+import { highlightColors, badgeTones, badgeTonesDark, colors, darkColors, contrastRatio, readerThemes, readingColumnWidth, snapFontScale, snapLineHeight, snapMargin } from '../theme';
 import { classifyOptionalFailure, FEATURE_ACCOUNT, FEATURE_AI, sentryEnabled } from './features';
 import { licenseAudit } from './library';
 import React, { act } from 'react';
@@ -54,6 +54,31 @@ for (const [name, swatch] of Object.entries(highlightColors)) {
 for (const [name, tone] of Object.entries(badgeTones)) {
   checkContrast(`badge ${name}`, tone.fg, tone.bg);
 }
+
+// Mode sombre et surfaces de marque : AA dans les deux thèmes.
+for (const [label, c] of [['clair', colors], ['sombre', darkColors]] as const) {
+  checkContrast(`${label} text/bg`, c.text, c.bg);
+  checkContrast(`${label} text/surface`, c.text, c.surface);
+  checkContrast(`${label} text/surfaceAlt`, c.text, c.surfaceAlt);
+  checkContrast(`${label} muted/bg`, c.muted, c.bg);
+  checkContrast(`${label} muted/surface`, c.muted, c.surface);
+  checkContrast(`${label} primary/surface`, c.primary, c.surface);
+  checkContrast(`${label} primary/primarySoft`, c.primary, c.primarySoft);
+  checkContrast(`${label} onPrimary/primary`, c.onPrimary, c.primary);
+  checkContrast(`${label} onPrimary/danger`, c.onPrimary, c.danger);
+  checkContrast(`${label} text/notice`, c.text, c.noticeBg);
+  checkContrast(`${label} onBrand/brand`, c.onBrand, c.brand);
+  checkContrast(`${label} onBrandMuted/brand`, c.onBrandMuted, c.brand);
+  checkContrast(`${label} gold/brand`, c.accent, c.brand);
+  checkContrast(`${label} accentInk/notice`, c.accentInk, c.noticeBg, 3);
+  checkContrast(`${label} success/surface`, c.success, c.surface, 3);
+}
+for (const [name, tone] of Object.entries(badgeTonesDark)) {
+  checkContrast(`badge sombre ${name}`, tone.fg, tone.bg);
+}
+// Toasts (fond inversé neutre).
+checkContrast('toast clair', '#FFFFFF', '#16213A');
+checkContrast('toast sombre', '#0E1424', '#ECE8DF');
 
 assert(readingColumnWidth(18, 'wide') === 540, 'wide measure');
 assert(readingColumnWidth(18, 'normal') === 612, 'normal measure');

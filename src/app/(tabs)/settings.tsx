@@ -8,9 +8,11 @@ import { FEATURE_AI } from '../../lib/features';
 import { PRIVACY_URL, SUPPORT_URL, supportEmail } from '../../lib/links';
 import { appStore } from '../../lib/store';
 import { LANGS } from '../../i18n/strings';
-import { colors, type ReaderTheme } from '../../theme';
+import { type ReaderTheme } from '../../theme';
+import { useColors } from '../../lib/colors';
 
 export default function Settings() {
+  const colors = useColors();
   const { t, lang, setLang, dir } = useI18n();
   const s = appStore.useStore();
   const warning = appStore.useStorageWarning();

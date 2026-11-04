@@ -7,9 +7,11 @@ import { Body, Button, Card, EmptyState, H1, H2, Muted, ProgressBar, Row, Screen
 import { useI18n } from '../../lib/i18n';
 import { allDocs } from '../../lib/library';
 import { appStore } from '../../lib/store';
-import { colors } from '../../theme';
+import { useColors, makeStyles } from '../../lib/colors';
 
 export default function Home() {
+  const colors = useColors();
+  const styles = useStyles();
   const { t, dir } = useI18n();
   const s = appStore.useStore();
   const docs = useMemo(() => allDocs(s.userDocs), [s.userDocs]);
@@ -30,8 +32,8 @@ export default function Home() {
     <Screen dir={dir}>
       <View style={styles.hero}>
         <Muted style={{ color: colors.accent, fontWeight: '800', letterSpacing: 2 }}>92'MBA</Muted>
-        <H1 style={{ color: '#fff' }}>{t('continueReading')}</H1>
-        <Body style={{ color: '#D7DCEA' }}>{t('tagline')}</Body>
+        <H1 style={{ color: colors.onBrand }}>{t('continueReading')}</H1>
+        <Body style={{ color: colors.onBrandMuted }}>{t('tagline')}</Body>
       </View>
 
       {current ? (
@@ -93,6 +95,18 @@ export default function Home() {
   );
 }
 
-const styles = StyleSheet.create({
-  hero: { backgroundColor: colors.primary, borderRadius: 22, padding: 22, gap: 8 },
-});
+const useStyles = makeStyles((colors) => ({
+  hero: {
+    backgroundColor: colors.brand,
+    borderRadius: 24,
+    padding: 24,
+    gap: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
+  },
+}));

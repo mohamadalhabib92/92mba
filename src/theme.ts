@@ -21,6 +21,36 @@ export const colors = {
   danger: '#B3261E',
   success: '#145C32',
   noticeBg: '#FFF6DC',
+  /** Surfaces de marque (bandeau, couvertures) : marine dans les deux thèmes. */
+  brand: '#1B2A4A',
+  onBrand: '#FFFFFF',
+  onBrandMuted: '#D7DCEA',
+};
+
+export type Colors = { [K in keyof typeof colors]: string };
+
+/**
+ * Mode sombre (suit le système). Marine profond en fond, or conservé,
+ * textes clairs : tous les couples texte/fond restent AA (voir passe1.check).
+ */
+export const darkColors: Colors = {
+  bg: '#0E1424',
+  surface: '#161E33',
+  surfaceAlt: '#1F2942',
+  text: '#ECE8DF',
+  muted: '#A9AEBD',
+  border: '#2C3754',
+  primary: '#C7D3EE',
+  primarySoft: '#24304D',
+  onPrimary: '#0E1424',
+  accent: '#C9A227',
+  accentInk: '#D9B54A',
+  danger: '#F2867E',
+  success: '#6FCF97',
+  noticeBg: '#2A2412',
+  brand: '#1E2D52',
+  onBrand: '#FFFFFF',
+  onBrandMuted: '#D7DCEA',
 };
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 40 };
@@ -33,6 +63,13 @@ export const badgeTones = {
   ok: { bg: '#E3F6EA', fg: '#145C32' },
   info: { bg: '#E4E8F1', fg: '#1B2A4A' },
 } as const;
+
+export const badgeTonesDark: Record<keyof typeof badgeTones, { bg: string; fg: string }> = {
+  neutral: { bg: '#262F47', fg: '#D8DCE6' },
+  warn: { bg: '#3A2E0F', fg: '#F3D27A' },
+  ok: { bg: '#12301F', fg: '#8FE0B0' },
+  info: { bg: '#24304D', fg: '#C7D3EE' },
+};
 
 /** Quatre surlignages lisibles dans les trois thèmes : texte sombre sur pastille claire. */
 export const highlightColors = {

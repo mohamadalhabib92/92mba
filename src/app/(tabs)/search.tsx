@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { Highlight } from '../../components/Highlight';
 import { Badge, Card, Chip, EmptyState, H1, H3, Muted, Row, Screen } from '../../components/ui';
 import { useI18n } from '../../lib/i18n';
@@ -10,9 +10,11 @@ import { appStore, cleanHistory, pushSearchHistory } from '../../lib/store';
 import { sanitizeSearchQuery } from '../../lib/textGuard';
 import { useDebounced } from '../../lib/useDebounced';
 import { LANGS, Lang } from '../../i18n/strings';
-import { colors } from '../../theme';
+import { useColors, makeStyles } from '../../lib/colors';
 
 export default function Search() {
+  const colors = useColors();
+  const styles = useStyles();
   const { t, lang, dir } = useI18n();
   const s = appStore.useStore();
   const [q, setQ] = useState('');
@@ -55,7 +57,7 @@ export default function Search() {
           autoCorrect={false}
         />
         {q ? (
-          <Pressable accessibilityLabel={t('clearHistory')} onPress={() => setQ('')} hitSlop={12}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('clearHistory')} onPress={() => setQ('')} hitSlop={12}>
             <Ionicons name="close-circle" size={18} color={colors.muted} />
           </Pressable>
         ) : null}
@@ -114,7 +116,7 @@ export default function Search() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -129,4 +131,4 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 16, color: colors.text, paddingVertical: 10 },
   title: { fontSize: 16, fontWeight: '700', color: colors.text },
   excerpt: { backgroundColor: colors.bg, borderRadius: 10, padding: 10, gap: 4 },
-});
+}));

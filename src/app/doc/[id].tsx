@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, ScrollViewInstance, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, ScrollViewInstance, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Highlight } from '../../components/Highlight';
 import { ReadingControls } from '../../components/ReadingControls';
@@ -12,13 +12,18 @@ import { CATEGORY_LABELS, findDoc, licenseBadgeLabel, licenseStatusCodeOf, norma
 import { appStore, setProgress, toggleBookmark } from '../../lib/store';
 import { useReaderPage } from './useReaderPage';
 import { firstString, sanitizeSearchQuery } from '../../lib/textGuard';
-import { colors, readingColumnWidth, readingPadding, readerThemes, snapFontScale, snapLineHeight, ReaderTheme } from '../../theme';
+import { readingColumnWidth, readingPadding, readerThemes, snapFontScale, snapLineHeight, ReaderTheme } from '../../theme';
+import { useColors, makeStyles } from '../../lib/colors';
+import { useFeedback } from '../../components/feedback';
 
 const THEME_ORDER: ReaderTheme[] = ['light', 'sepia', 'dark'];
 
 export default function Reader() {
+  const colors = useColors();
+  const styles = useStyles();
   const params = useLocalSearchParams<{ id: string; page?: string; q?: string }>();
   const { t, lang } = useI18n();
+  const { toast } = useFeedback();
   const s = appStore.useStore();
   const doc = useMemo(() => findDoc(firstString(params.id) || undefined, s.userDocs), [params.id, s.userDocs]);
   const pages = useMemo(() => (doc ? paginate(doc) : []), [doc]);
@@ -105,30 +110,34 @@ export default function Reader() {
           </Text>
           <Text style={{ color: theme.muted, fontSize: 12 }}>{t('page', { p: page + 1, n: pages.length })} · {t('percent', { n: pct })}</Text>
         </View>
-        {iconBtn(isMarked ? 'bookmark' : 'bookmark-outline', isMarked ? t('removeBookmark') : t('addBookmark'), () => toggleBookmark(doc.id, page), isMarked)}
+        {iconBtn(isMarked ? 'bookmark' : 'bookmark-outline', isMarked ? t('removeBookmark') : t('addBookmark'), () => {
+          toggleBookmark(doc.id, page);
+          toast(isMarked ? t('bookmarkRemoved') : t('bookmarkAdded'), isMarked ? 'info' : 'success');
+        }, isMarked)}
         {iconBtn('information-circle-outline', t('info'), () => setPanel(panel === 'info' ? 'none' : 'info'), panel === 'info')}
       </View>
       <View style={[styles.tools, { backgroundColor: theme.bar }]}>
-        <Pressable accessibilityLabel={t('textSmaller')} style={styles.tool} onPress={() => appStore.set({ fontScale: snapFontScale(fontScale - 0.1) })}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('textSmaller')} style={styles.tool} onPress={() => appStore.set({ fontScale: snapFontScale(fontScale - 0.1) })}>
           <Text style={{ color: theme.text, fontWeight: '700', fontSize: 14 }}>A-</Text>
         </Pressable>
-        <Pressable accessibilityLabel={t('textLarger')} style={styles.tool} onPress={() => appStore.set({ fontScale: snapFontScale(fontScale + 0.1) })}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('textLarger')} style={styles.tool} onPress={() => appStore.set({ fontScale: snapFontScale(fontScale + 0.1) })}>
           <Text style={{ color: theme.text, fontWeight: '700', fontSize: 18 }}>A+</Text>
         </Pressable>
         <Pressable
+          accessibilityRole="button"
           accessibilityLabel={t('readerTheme')}
           style={styles.tool}
           onPress={() => appStore.set({ readerTheme: THEME_ORDER[(THEME_ORDER.indexOf(s.readerTheme) + 1) % 3] })}
         >
           <Ionicons name={s.readerTheme === 'dark' ? 'moon' : s.readerTheme === 'sepia' ? 'cafe-outline' : 'sunny-outline'} size={18} color={theme.text} />
         </Pressable>
-        <Pressable accessibilityLabel={t('findInDoc')} style={styles.tool} onPress={() => setPanel(panel === 'find' ? 'none' : 'find')}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('findInDoc')} style={styles.tool} onPress={() => setPanel(panel === 'find' ? 'none' : 'find')}>
           <Ionicons name="search" size={18} color={panel === 'find' ? theme.accent : theme.text} />
         </Pressable>
-        <Pressable accessibilityLabel={t('display')} style={styles.tool} onPress={() => setPanel(panel === 'display' ? 'none' : 'display')}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('display')} style={styles.tool} onPress={() => setPanel(panel === 'display' ? 'none' : 'display')}>
           <Ionicons name="text" size={18} color={panel === 'display' ? theme.accent : theme.text} />
         </Pressable>
-        <Pressable accessibilityLabel={t('bookmarks')} style={styles.tool} onPress={() => setPanel(panel === 'bookmarks' ? 'none' : 'bookmarks')}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('bookmarks')} style={styles.tool} onPress={() => setPanel(panel === 'bookmarks' ? 'none' : 'bookmarks')}>
           <Ionicons name="list" size={18} color={panel === 'bookmarks' ? theme.accent : theme.text} />
           {marks.length ? <Text style={{ color: theme.muted, fontSize: 11 }}>{marks.length}</Text> : null}
         </Pressable>
@@ -163,7 +172,7 @@ export default function Reader() {
             marks.length ? (
               <Row style={{ flexWrap: 'wrap' }}>
                 {marks.map((m) => (
-                  <Pressable key={m} onPress={() => { go(m); setPanel('none'); }} style={[styles.pill, { borderColor: theme.accent }]}>
+                  <Pressable key={m} accessibilityRole="button" accessibilityLabel={t('page', { p: m + 1, n: pages.length })} onPress={() => { go(m); setPanel('none'); }} style={[styles.pill, { borderColor: theme.accent }]}>
                     <Ionicons name="bookmark" size={12} color={theme.accent} />
                     <Text style={{ color: theme.text }}>{t('page', { p: m + 1, n: pages.length })}</Text>
                   </Pressable>
@@ -188,7 +197,7 @@ export default function Reader() {
                 findHits.length ? (
                   <Row style={{ flexWrap: 'wrap' }}>
                     {findHits.map((h) => (
-                      <Pressable key={h.i} onPress={() => go(h.i)} style={[styles.pill, { borderColor: h.i === page ? theme.accent : theme.muted + '66' }]}>
+                      <Pressable key={h.i} accessibilityRole="button" onPress={() => go(h.i)} style={[styles.pill, { borderColor: h.i === page ? theme.accent : theme.muted + '66' }]}>
                         <Text style={{ color: theme.text }}>{t('page', { p: h.i + 1, n: pages.length })} ({h.n})</Text>
                       </Pressable>
                     ))}
@@ -261,8 +270,8 @@ export default function Reader() {
             label={t('next')}
             disabled={page >= pages.length - 1}
             onPress={() => go(page + 1)}
-            labelColor={s.readerTheme === 'dark' ? colors.primary : colors.onPrimary}
-            backgroundColor={s.readerTheme === 'dark' ? colors.accent : colors.primary}
+            labelColor={s.readerTheme === 'dark' ? colors.brand : colors.onBrand}
+            backgroundColor={s.readerTheme === 'dark' ? colors.accent : colors.brand}
           />
         </Row>
       </View>
@@ -298,15 +307,15 @@ function Meta({ k, v, c }: { k: string; v: string; c: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   top: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 6 },
   title: { fontWeight: '700', fontSize: 15 },
   iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   tools: { flexDirection: 'row', justifyContent: 'center', gap: 4, paddingBottom: 6 },
-  tool: { minWidth: 52, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 3 },
+  tool: { minWidth: 52, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 3 },
   panel: { marginHorizontal: 12, marginBottom: 6, padding: 12, borderRadius: 14, borderWidth: 1 },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, minHeight: 36 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, minHeight: 44 },
   find: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, minHeight: 44, fontSize: 15 },
   pageWrap: { padding: 22, paddingBottom: 40, alignItems: 'center' },
   bottom: { paddingHorizontal: 16, paddingBottom: 12, paddingTop: 2, gap: 2 },
-});
+}));
