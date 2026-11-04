@@ -3,13 +3,15 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File as FsFile } from 'expo-file-system';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Platform, StyleSheet, TextInput } from 'react-native';
+import { Platform, TextInput, View } from 'react-native';
 import { Badge, Body, Button, Card, Chip, H1, H3, Muted, Row, Screen } from '../components/ui';
 import { useI18n } from '../lib/i18n';
 import { Category, CATEGORY_LABELS, Doc, LicenseKind, LicenseStatusCode } from '../lib/library';
 import { appStore } from '../lib/store';
 import { LANGS, Lang } from '../i18n/strings';
-import { colors } from '../theme';
+import { useColors, makeStyles } from '../lib/colors';
+import { haptic } from '../lib/haptics';
+import { useFeedback } from '../components/feedback';
 
 async function readPicked(asset: DocumentPicker.DocumentPickerAsset): Promise<string> {
   if (Platform.OS === 'web' && asset.file) return asset.file.text();
@@ -17,7 +19,10 @@ async function readPicked(asset: DocumentPicker.DocumentPickerAsset): Promise<st
 }
 
 export default function AddDoc() {
+  const colors = useColors();
+  const styles = useStyles();
   const { t, lang, dir } = useI18n();
+  const { celebrate } = useFeedback();
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [text, setText] = useState('');
@@ -37,6 +42,7 @@ export default function AddDoc() {
       setText(content);
       if (!title) setTitle(a.name.replace(/\.(txt|md)$/i, ''));
     } catch (e) {
+      haptic.error();
       setError(String((e as Error)?.message ?? e));
     }
   };
@@ -47,7 +53,10 @@ export default function AddDoc() {
       .split(/\n\s*\n/)
       .map((p) => p.replace(/\s*\n\s*/g, ' ').trim())
       .filter(Boolean);
-    if (!title.trim() || paragraphs.length === 0) return setError(t('required'));
+    if (!title.trim() || paragraphs.length === 0) {
+      haptic.warning();
+      return setError(t('required'));
+    }
     const labels = { owned: t('licOwned'), 'public-domain': t('licPD'), open: t('licOpen') };
     const statusCode: LicenseStatusCode = kind === 'public-domain' ? 'public-domain-claimed' : kind === 'open' ? 'open' : 'owned';
     const doc: Doc = {
@@ -69,6 +78,7 @@ export default function AddDoc() {
       addedAt: new Date().toISOString(),
     };
     appStore.set((s) => ({ userDocs: [doc, ...s.userDocs] }));
+    celebrate({ title: t('docAdded'), sub: doc.title, icon: 'document-text' });
     router.replace({ pathname: '/doc/[id]', params: { id: doc.id } });
   };
 
@@ -78,7 +88,7 @@ export default function AddDoc() {
         <H1>{t('add')}</H1>
         <Button small variant="ghost" label={t('close')} onPress={() => (router.canGoBack() ? router.back() : router.replace('/library'))} />
       </Row>
-      <Card style={{ backgroundColor: '#FFF6DC' }}>
+      <Card style={{ backgroundColor: colors.noticeBg }}>
         <Row>
           <Ionicons name="shield-checkmark-outline" size={18} color={colors.accentInk} />
           <Body style={{ flex: 1 }}>{t('rightsNotice')}</Body>
@@ -86,9 +96,9 @@ export default function AddDoc() {
       </Card>
       <Card>
         <H3>{t('title')}</H3>
-        <TextInput value={title} onChangeText={setTitle} style={styles.input} placeholder={t('title')} placeholderTextColor={colors.muted} />
+        <TextInput value={title} onChangeText={setTitle} style={[styles.input, dirStyle(docLang === 'ar')]} placeholder={t('title')} accessibilityLabel={t('title')} placeholderTextColor={colors.muted} />
         <H3>{t('author')}</H3>
-        <TextInput value={author} onChangeText={setAuthor} style={styles.input} placeholder={t('author')} placeholderTextColor={colors.muted} />
+        <TextInput value={author} onChangeText={setAuthor} style={[styles.input, dirStyle(dir === 'rtl')]} placeholder={t('author')} accessibilityLabel={t('author')} placeholderTextColor={colors.muted} />
         <H3>{t('language')}</H3>
         <Row style={{ flexWrap: 'wrap' }}>
           {LANGS.map((l) => (
@@ -109,7 +119,7 @@ export default function AddDoc() {
           <Chip label={t('licPD')} active={kind === 'public-domain'} onPress={() => setKind('public-domain')} />
           <Chip label={t('licOpen')} active={kind === 'open'} onPress={() => setKind('open')} />
         </Row>
-        <TextInput value={details} onChangeText={setDetails} style={styles.input} placeholder={t('licenseDetails')} placeholderTextColor={colors.muted} />
+        <TextInput value={details} onChangeText={setDetails} style={[styles.input, dirStyle(dir === 'rtl')]} placeholder={t('licenseDetails')} accessibilityLabel={t('licenseDetails')} placeholderTextColor={colors.muted} />
       </Card>
       <Card>
         <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
@@ -120,19 +130,24 @@ export default function AddDoc() {
           value={text}
           onChangeText={setText}
           multiline
-          style={[styles.input, { minHeight: 200, textAlignVertical: 'top' }]}
+          style={[styles.input, { minHeight: 200, textAlignVertical: 'top' }, dirStyle(docLang === 'ar')]}
           placeholder={t('pasteText')}
+          accessibilityLabel={t('pasteText')}
           placeholderTextColor={colors.muted}
         />
         {text ? <Muted>{text.length.toLocaleString()} car.</Muted> : null}
       </Card>
-      {error ? <Badge label={error} tone="warn" /> : null}
-      <Button label={t('save')} icon={<Ionicons name="checkmark" size={18} color="#fff" />} onPress={save} />
+      {error ? (
+        <View accessibilityRole="alert" accessibilityLiveRegion="polite">
+          <Badge label={error} tone="warn" />
+        </View>
+      ) : null}
+      <Button label={t('save')} icon={<Ionicons name="checkmark" size={18} color={colors.onPrimary} />} onPress={save} />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   input: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -143,4 +158,9 @@ const styles = StyleSheet.create({
     color: colors.text,
     backgroundColor: colors.bg,
   },
-});
+}));
+
+/** Champ de saisie en arabe : écriture de droite à gauche, alignée à droite. */
+function dirStyle(rtl: boolean) {
+  return rtl ? ({ textAlign: 'right', writingDirection: 'rtl' } as const) : ({ textAlign: 'left' } as const);
+}

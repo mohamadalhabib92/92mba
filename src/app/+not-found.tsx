@@ -3,9 +3,10 @@ import { router } from 'expo-router';
 import React from 'react';
 import { Button, EmptyState, Screen } from '../components/ui';
 import { useI18n } from '../lib/i18n';
-import { colors } from '../theme';
+import { useColors } from '../lib/colors';
 
 export default function NotFound() {
+  const colors = useColors();
   const { t, dir } = useI18n();
   return (
     <Screen dir={dir}>

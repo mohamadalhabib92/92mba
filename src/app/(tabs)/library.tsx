@@ -8,9 +8,10 @@ import { useI18n } from '../../lib/i18n';
 import { allDocs, Category, CATEGORY_LABELS } from '../../lib/library';
 import { appStore } from '../../lib/store';
 import { LANGS, Lang } from '../../i18n/strings';
-import { colors } from '../../theme';
+import { useColors } from '../../lib/colors';
 
 export default function Library() {
+  const colors = useColors();
   const { t, lang, dir } = useI18n();
   const s = appStore.useStore();
   const [cat, setCat] = useState<Category | 'all' | 'mine'>('all');
@@ -30,7 +31,7 @@ export default function Library() {
     <Screen dir={dir}>
       <Row style={{ justifyContent: 'space-between' }}>
         <H1>{t('tabLibrary')}</H1>
-        <Button small label={t('add')} icon={<Ionicons name="add" size={16} color="#fff" />} onPress={() => router.push('/add')} />
+        <Button small label={t('add')} icon={<Ionicons name="add" size={16} color={colors.onPrimary} />} onPress={() => router.push('/add')} />
       </Row>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
         <Chip label={t('allDocs')} active={cat === 'all'} onPress={() => setCat('all')} />

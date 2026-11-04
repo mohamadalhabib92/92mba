@@ -21,6 +21,36 @@ export const colors = {
   danger: '#B3261E',
   success: '#145C32',
   noticeBg: '#FFF6DC',
+  /** Surfaces de marque (bandeau, couvertures) : marine dans les deux thèmes. */
+  brand: '#1B2A4A',
+  onBrand: '#FFFFFF',
+  onBrandMuted: '#D7DCEA',
+};
+
+export type Colors = { [K in keyof typeof colors]: string };
+
+/**
+ * Mode sombre (suit le système). Marine profond en fond, or conservé,
+ * textes clairs : tous les couples texte/fond restent AA (voir passe1.check).
+ */
+export const darkColors: Colors = {
+  bg: '#0E1424',
+  surface: '#161E33',
+  surfaceAlt: '#1F2942',
+  text: '#ECE8DF',
+  muted: '#A9AEBD',
+  border: '#2C3754',
+  primary: '#C7D3EE',
+  primarySoft: '#24304D',
+  onPrimary: '#0E1424',
+  accent: '#C9A227',
+  accentInk: '#D9B54A',
+  danger: '#F2867E',
+  success: '#6FCF97',
+  noticeBg: '#2A2412',
+  brand: '#1E2D52',
+  onBrand: '#FFFFFF',
+  onBrandMuted: '#D7DCEA',
 };
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 40 };
@@ -33,6 +63,13 @@ export const badgeTones = {
   ok: { bg: '#E3F6EA', fg: '#145C32' },
   info: { bg: '#E4E8F1', fg: '#1B2A4A' },
 } as const;
+
+export const badgeTonesDark: Record<keyof typeof badgeTones, { bg: string; fg: string }> = {
+  neutral: { bg: '#262F47', fg: '#D8DCE6' },
+  warn: { bg: '#3A2E0F', fg: '#F3D27A' },
+  ok: { bg: '#12301F', fg: '#8FE0B0' },
+  info: { bg: '#24304D', fg: '#C7D3EE' },
+};
 
 /** Quatre surlignages lisibles dans les trois thèmes : texte sombre sur pastille claire. */
 export const highlightColors = {
@@ -140,3 +177,40 @@ export const fontNames = {
   arabic: 'NotoNaskhArabic',
   arabicBold: 'NotoNaskhArabicBold',
 } as const;
+
+/** Mélange opaque de `fg` sur `bg` (a = part de fg) : une teinte pleine, sans transparence. */
+export function mix(fg: string, bg: string, a: number): string {
+  const p = (hex: string, i: number) => parseInt(hex.replace('#', '').slice(i, i + 2), 16);
+  const k = Math.max(0, Math.min(1, a));
+  let out = '#';
+  for (const i of [0, 2, 4]) {
+    const v = Math.round(p(fg, i) * k + p(bg, i) * (1 - k));
+    out += v.toString(16).padStart(2, '0');
+  }
+  return out.toUpperCase();
+}
+
+/**
+ * Garde la teinte de marque mais la rapproche de `toward` (couleur du texte)
+ * par pas de 5 % jusqu’à atteindre le contraste demandé (AA = 4,5 ; icônes = 3).
+ */
+export function ensureContrast(fg: string, bg: string, toward: string, min = 4.5): string {
+  if (!/^#[0-9a-fA-F]{6}/.test(fg) || !/^#[0-9a-fA-F]{6}/.test(bg)) return fg;
+  const base = fg.slice(0, 7);
+  for (let k = 0; k <= 1.0001; k += 0.05) {
+    const c = k === 0 ? base : mix(toward, base, k);
+    if (contrastRatio(c, bg) >= min) return c;
+  }
+  return toward;
+}
+
+/** Toast neutre inversé (encre sur fond foncé / clair) : AA dans les deux thèmes. */
+export const toastColors = {
+  light: { bg: '#16213A', fg: '#FFFFFF' },
+  dark: { bg: '#ECE8DF', fg: '#0E1424' },
+} as const;
+
+/** Icône du toast : encre claire ou foncée, celle qui contraste le plus avec la pastille (≥ 3:1). */
+export function toastIconInk(tint: string): string {
+  return contrastRatio('#FFFFFF', tint) >= contrastRatio(toastColors.dark.fg, tint) ? '#FFFFFF' : toastColors.dark.fg;
+}

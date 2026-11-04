@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { Highlight } from '../../components/Highlight';
 import { Badge, Card, Chip, EmptyState, H1, H3, Muted, Row, Screen } from '../../components/ui';
 import { useI18n } from '../../lib/i18n';
@@ -10,9 +10,11 @@ import { appStore, cleanHistory, pushSearchHistory } from '../../lib/store';
 import { sanitizeSearchQuery } from '../../lib/textGuard';
 import { useDebounced } from '../../lib/useDebounced';
 import { LANGS, Lang } from '../../i18n/strings';
-import { colors } from '../../theme';
+import { useColors, makeStyles } from '../../lib/colors';
 
 export default function Search() {
+  const colors = useColors();
+  const styles = useStyles();
   const { t, lang, dir } = useI18n();
   const s = appStore.useStore();
   const [q, setQ] = useState('');
@@ -55,7 +57,7 @@ export default function Search() {
           autoCorrect={false}
         />
         {q ? (
-          <Pressable accessibilityLabel={t('clearHistory')} onPress={() => setQ('')} hitSlop={12}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('clearHistory')} onPress={() => setQ('')} hitSlop={12}>
             <Ionicons name="close-circle" size={18} color={colors.muted} />
           </Pressable>
         ) : null}
@@ -75,7 +77,7 @@ export default function Search() {
           <Card>
             <Row style={{ justifyContent: 'space-between' }}>
               <H3>{t('searchHistory')}</H3>
-              <Pressable accessibilityRole="button" onPress={() => appStore.set({ searchHistory: [] })} hitSlop={10}>
+              <Pressable accessibilityRole="button" accessibilityLabel={t('clearHistory')} onPress={() => appStore.set({ searchHistory: [] })} hitSlop={12} style={{ minHeight: 44, justifyContent: 'center' }}>
                 <Muted style={{ color: colors.primary, fontWeight: '700' }}>{t('clearHistory')}</Muted>
               </Pressable>
             </Row>
@@ -94,14 +96,26 @@ export default function Search() {
         <>
           <Muted>{t('results', { n: hits.length })}</Muted>
           {hits.map((h) => (
-            <Card key={h.doc.id} onPress={() => open(h.doc.id, h.matches[0]?.page ?? 0)}>
+            <Card
+              key={h.doc.id}
+              onPress={() => open(h.doc.id, h.matches[0]?.page ?? 0)}
+              accessibilityLabel={`${h.doc.title}, ${h.doc.author}`}
+              // Lecteur d’écran : quand des extraits existent, chacun reste un bouton atteignable (le premier ouvre la même page que la carte).
+              accessible={h.matches.length === 0}
+            >
               <Highlight text={h.doc.title} query={dq} style={styles.title} />
               <Row gap={6}>
                 <Badge label={licenseBadgeLabel(h.doc.license.kind, lang)} tone={h.doc.license.kind === 'placeholder' ? 'warn' : 'info'} />
                 <Muted>{h.doc.author}</Muted>
               </Row>
               {h.matches.map((m, i) => (
-                <Pressable key={i} onPress={() => open(h.doc.id, m.page)} style={styles.excerpt} accessibilityRole="button">
+                <Pressable
+                  key={i}
+                  onPress={() => open(h.doc.id, m.page)}
+                  style={styles.excerpt}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${h.doc.title} — ${t('page', { p: m.page + 1, n: '…' })} : ${m.excerpt}`}
+                >
                   <Muted>{t('page', { p: m.page + 1, n: '…' })}</Muted>
                   <Highlight text={m.excerpt} query={dq} style={{ color: colors.text, lineHeight: 20, writingDirection: h.doc.lang === 'ar' ? 'rtl' : 'ltr' }} />
                 </Pressable>
@@ -114,7 +128,7 @@ export default function Search() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -129,4 +143,4 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 16, color: colors.text, paddingVertical: 10 },
   title: { fontSize: 16, fontWeight: '700', color: colors.text },
   excerpt: { backgroundColor: colors.bg, borderRadius: 10, padding: 10, gap: 4 },
-});
+}));
