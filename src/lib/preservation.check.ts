@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { dictionaries } from '../i18n/strings';
+import { historyClearIntent } from './historyClear';
 import { SEARCH_HISTORY_DISPLAY_CAP, cleanHistory } from './textGuard';
 import { createPersistedStore, quarantineStorageKey, type KeyValueStorage } from './persist';
 import {
@@ -97,6 +98,7 @@ void (async () => {
   await historyOf40SurvivesUntilExplicitClear();
   await nextSearchKeepsFortyAndAddsOne();
   await shortHistoryDoesNotInventMissingEntries();
+  await historyClearCancelKeepsFortyOne();
   await writeFailureStaysVisibleAndRetries();
   await oversizedWriteDoesNotReplace();
   await roundTrip250k();
@@ -304,6 +306,69 @@ async function nextSearchKeepsFortyAndAddsOne() {
   assert(still.accountId === 'local-account-kept' && still.userDocs?.[0]?.fileName === 'notes.txt', 'dédoublonnage : champs');
   assert(still.userDocs?.[0]?.note === 'fichier importé', 'dédoublonnage : note');
   assert(still.userDocs?.[0]?.paragraphs?.[0]?.length === 250_000, 'dédoublonnage : paragraphe');
+}
+
+async function historyClearCancelKeepsFortyOne() {
+  assert(historyClearIntent('idle', 'ask').erase === false, 'demander efface');
+  assert(historyClearIntent('idle', 'erase').erase === false, 'effacer hors confirmation');
+  assert(historyClearIntent('confirming', 'cancel').erase === false, 'annuler efface');
+  assert(historyClearIntent('confirming', 'erase').erase === true, 'confirmer n’efface pas');
+  const prompt = dictionaries.fr.clearHistoryPrompt;
+  assert(prompt.includes('recherches') && prompt.includes('documents') && prompt.includes('progression') && prompt.includes('signets') && prompt.includes('notes'), 'phrase opaque');
+  assert(dictionaries.fr.cancel === 'Annuler' && dictionaries.fr.confirmClearHistory === 'Effacer', 'libellés');
+  const searchSrc = fs.readFileSync(path.join(process.cwd(), 'src/app/(tabs)/search.tsx'), 'utf8');
+  const clearSrc = fs.readFileSync(path.join(process.cwd(), 'src/lib/historyClear.ts'), 'utf8');
+  assert(!searchSrc.includes('Alert.alert') && !searchSrc.includes('window.confirm'), 'confirmation native');
+  assert(!clearSrc.includes('Alert.alert') && !clearSrc.includes('window.confirm'), 'confirmation native dans la décision');
+
+  const viewSrc = fs.readFileSync(path.join(process.cwd(), 'src/components/HistoryClear.tsx'), 'utf8');
+  assert(viewSrc.includes('accessibilityRole="button"'), 'boutons sans rôle');
+  assert(viewSrc.split('accessibilityRole="button"').length === 4, 'Annuler, Effacer et la demande ne sont pas trois boutons');
+  assert(viewSrc.includes('{askLabel}') && viewSrc.includes('{cancelLabel}') && viewSrc.includes('{eraseLabel}'), 'libellés invisibles');
+  assert(viewSrc.includes('{prompt}'), 'phrase non affichée');
+  assert(viewSrc.includes('onAsk') && viewSrc.includes('onCancel') && viewSrc.includes('onErase'), 'actions non branchées');
+  assert(searchSrc.includes("if (next.erase) appStore.set({ searchHistory: [] })"), 'l’effacement n’est pas fermé');
+  assert(searchSrc.split('searchHistory: []').length === 2, 'un autre geste vide l’historique');
+
+  const base = JSON.parse(readFixture('legacy-unknown.json')) as {
+    searchHistory: string[];
+    bookmarks: Record<string, number[]>;
+    progress: Record<string, { page: number }>;
+    userDocs: { note?: string; fileName?: string; paragraphs: string[] }[];
+    accountId?: string;
+  };
+  const history41 = ['nouvelle-recherche', ...Array.from({ length: 40 }, (_, i) => `requete-${String(i).padStart(2, '0')}`)];
+  base.searchHistory = history41.slice();
+  const raw = JSON.stringify(base);
+  const bag = memory({ [STORAGE_KEY]: raw });
+  const store = open(bag.storage);
+  await wait(30);
+  const cancelled = historyClearIntent('confirming', 'cancel');
+  if (cancelled.erase) store.set({ searchHistory: [] });
+  await wait(30);
+  assert(bag.disk.get(STORAGE_KEY) === raw, 'annuler a modifié le disque');
+  const kept = JSON.parse(bag.disk.get(STORAGE_KEY) ?? '{}') as { searchHistory?: string[] };
+  assert(kept.searchHistory?.length === 41, `annuler : ${kept.searchHistory?.length}`);
+  assert(JSON.stringify(kept.searchHistory) === JSON.stringify(history41), 'annuler a réordonné l’historique');
+
+  const accepted = historyClearIntent('confirming', 'erase');
+  if (accepted.erase) store.set({ searchHistory: [] });
+  await wait(40);
+  const cleared = JSON.parse(bag.disk.get(STORAGE_KEY) ?? '{}') as {
+    searchHistory?: unknown[];
+    accountId?: string;
+    bookmarks?: Record<string, number[]>;
+    progress?: Record<string, { page?: number; anchor?: string }>;
+    userDocs?: { note?: string; fileName?: string; paragraphs?: string[] }[];
+  };
+  assert(cleared.searchHistory?.length === 0, 'effacement confirmé ignoré');
+  assert(cleared.accountId === 'local-account-kept', 'effacement historique : accountId');
+  assert(JSON.stringify(cleared.bookmarks?.['taylor-scientific-management']) === JSON.stringify([2, 5]), 'effacement historique : signets');
+  assert(cleared.progress?.['taylor-scientific-management']?.page === 120, 'effacement historique : page');
+  assert(cleared.progress?.['taylor-scientific-management']?.anchor === 'p-120', 'effacement historique : ancre');
+  assert(cleared.userDocs?.[0]?.note === 'fichier importé', 'effacement historique : note');
+  assert(cleared.userDocs?.[0]?.fileName === 'notes.txt', 'effacement historique : fichier');
+  assert(cleared.userDocs?.[0]?.paragraphs?.[0] === 'Paragraphe un.', 'effacement historique : texte');
 }
 
 async function shortHistoryDoesNotInventMissingEntries() {
