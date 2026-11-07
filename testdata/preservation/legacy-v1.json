@@ -1,0 +1,14 @@
+{
+  "lang": "ar",
+  "fontScale": 1.4,
+  "lineHeight": 1.7,
+  "readerMargin": "wide",
+  "dyslexia": true,
+  "readerTheme": "sepia",
+  "progress": {
+    "taylor-scientific-management": { "page": 120, "pages": 300, "updatedAt": 4 }
+  },
+  "bookmarks": { "taylor-scientific-management": [2, 5] },
+  "searchHistory": ["bilan", "swot"],
+  "userDocs": []
+}

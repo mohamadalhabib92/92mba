@@ -23,10 +23,27 @@ function StorageWarning() {
   const { t } = useI18n();
   if (!warning) return null;
   const message =
-    warning === 'delete-failed' ? 'resetDeleteFailed' : warning === 'copy-failed' ? 'storageCopyFailed' : 'storageUnreadable';
+    warning === 'delete-failed'
+      ? 'resetDeleteFailed'
+      : warning === 'copy-failed'
+        ? 'storageCopyFailed'
+        : warning === 'version-quarantine'
+          ? 'storageVersionQuarantine'
+          : warning === 'write-failed'
+            ? 'storageWriteFailed'
+            : 'storageUnreadable';
   return (
     <View style={{ backgroundColor: colors.noticeBg, paddingHorizontal: 16, paddingVertical: 12 }}>
       <Text style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>{t(message)}</Text>
+      {warning === 'write-failed' ? (
+        <Text
+          accessibilityRole="button"
+          onPress={() => appStore.retrySave()}
+          style={{ color: colors.primary, fontWeight: '700', marginTop: 6, fontSize: 15 }}
+        >
+          {t('retrySave')}
+        </Text>
+      ) : null}
     </View>
   );
 }
