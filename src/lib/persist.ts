@@ -5,7 +5,7 @@ import {
   classifyStored,
   describeRaw,
   EMPTY_PRESERVE_REPORT,
-  exceedsDocumentedCursor,
+  exceedsProductEntryGuard,
   quarantineStorageKey,
   type PreserveReport,
 } from './preservation';
@@ -257,7 +257,7 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
         const changesAtWrite = new Set(pendingChanges);
         const stateAtWrite = state;
         const payload = JSON.stringify(composeSave(rawObject, state as AppState, changesAtWrite));
-        if (exceedsDocumentedCursor(utf8ByteLength(payload))) {
+        if (exceedsProductEntryGuard(utf8ByteLength(payload))) {
           warning = 'write-failed';
           emit();
           return;

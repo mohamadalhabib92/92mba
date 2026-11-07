@@ -1,20 +1,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { dictionaries } from '../i18n/strings';
-import { cleanHistory } from './textGuard';
+import { SEARCH_HISTORY_DISPLAY_CAP, cleanHistory } from './textGuard';
 import { createPersistedStore, quarantineStorageKey, type KeyValueStorage } from './persist';
 import {
   CURRENT_SCHEMA_VERSION,
-  DOCUMENTED_ANDROID_CURSOR_BYTES,
   ISOLATED_RESTORE_KEY,
-  SEARCH_HISTORY_CAP,
+  PRODUCT_ENTRY_GUARD_BYTES,
   describeRaw,
-  exceedsDocumentedCursor,
+  exceedsProductEntryGuard,
   restoreIsolated,
 } from './preservation';
 import { sha256Hex } from './sha256';
 import { defaultAppState, mergeLate, mergeStored } from './stateMerge';
-import { STORAGE_KEY } from './store';
+import { STORAGE_KEY, pushSearchHistory } from './store';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -78,11 +77,11 @@ function assertNoPersonal(report: unknown) {
 assert(sha256Hex('') === 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', 'sha256 vide');
 assert(sha256Hex('abc') === 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad', 'sha256 abc');
 assert(CURRENT_SCHEMA_VERSION === 1, 'schema');
-assert(SEARCH_HISTORY_CAP === 12, 'plafond historique');
-assert(DOCUMENTED_ANDROID_CURSOR_BYTES === 2_000_000, 'plafond curseur');
-assert(exceedsDocumentedCursor(1_999_999) === false, '1 999 999 octets encore acceptés');
-assert(exceedsDocumentedCursor(2_000_000) === true, '2 000 000 octets refusés');
-assert(cleanHistory(Array.from({ length: 40 }, (_, i) => `requete-${String(i).padStart(2, '0')}`)).length === 12, 'cleanHistory 40 → 12');
+assert(SEARCH_HISTORY_DISPLAY_CAP === 12, 'plafond d’affichage');
+assert(PRODUCT_ENTRY_GUARD_BYTES === 2_000_000, 'seuil produit');
+assert(exceedsProductEntryGuard(1_999_999) === false, '1 999 999 octets encore acceptés par le seuil produit');
+assert(exceedsProductEntryGuard(2_000_000) === true, '2 000 000 octets refusés par le seuil produit');
+assert(cleanHistory(Array.from({ length: 40 }, (_, i) => `requete-${String(i).padStart(2, '0')}`)).length === SEARCH_HISTORY_DISPLAY_CAP, 'affichage 40 → 12');
 assert(!dictionaries.fr.storageVersionQuarantine.toLowerCase().includes('corrompu'), 'message neutre');
 assert(dictionaries.fr.storageVersionQuarantine.includes('rien n’a été remplacé'), 'message de non-remplacement');
 assert(dictionaries.fr.logoutNoAccount !== dictionaries.fr.resetDone, 'déconnexion distincte de l’effacement');
@@ -96,6 +95,8 @@ void (async () => {
   await incoherentVersionIsQuarantined();
   await mismatchedTypesStayOnDisk();
   await historyOf40SurvivesUntilExplicitClear();
+  await nextSearchKeepsFortyAndAddsOne();
+  await shortHistoryDoesNotInventMissingEntries();
   await writeFailureStaysVisibleAndRetries();
   await oversizedWriteDoesNotReplace();
   await roundTrip250k();
@@ -242,6 +243,83 @@ async function mismatchedTypesStayOnDisk() {
   assert(written.userDocs?.[0]?.fileRef === 'upload://1', 'fileRef perdu');
 }
 
+async function nextSearchKeepsFortyAndAddsOne() {
+  const base = JSON.parse(readFixture('legacy-unknown.json')) as {
+    searchHistory: string[];
+    userDocs: { paragraphs: string[]; note?: string; fileName?: string }[];
+    progress: Record<string, { page: number; anchor?: string }>;
+  };
+  const older = Array.from({ length: 40 }, (_, i) => `requete-${String(i).padStart(2, '0')}`);
+  base.searchHistory = older.slice();
+  const paragraph = 'p'.repeat(250_000);
+  base.userDocs[0].paragraphs = [paragraph];
+  const raw = JSON.stringify(base);
+  const bag = memory({ [STORAGE_KEY]: raw });
+  const store = open(bag.storage);
+  await wait(30);
+  assert(cleanHistory(store.get().searchHistory).length === 12, 'affichage initial');
+  assert(store.get().searchHistory.length === 12, 'la mémoire n’a pas reçu les 28 recherches non affichées');
+  pushSearchHistory('nouvelle-recherche', store);
+  await wait(40);
+  const written = JSON.parse(bag.disk.get(STORAGE_KEY) ?? '{}') as {
+    searchHistory?: unknown[];
+    accountId?: string;
+    importBatch?: { id?: string; count?: number };
+    progress?: Record<string, { page?: number; anchor?: string }>;
+    userDocs?: { fileName?: string; note?: string; paragraphs?: string[] }[];
+  };
+  assert(written.searchHistory?.length === 41, `historique après recherche ${written.searchHistory?.length}`);
+  assert(written.searchHistory?.[0] === 'nouvelle-recherche', 'nouvelle recherche en tête');
+  for (const query of older) {
+    assert(written.searchHistory?.includes(query), `recherche ancienne absente : ${query}`);
+  }
+  assert(written.accountId === 'local-account-kept', 'recherche : accountId');
+  assert(written.importBatch?.count === 1, 'recherche : importBatch');
+  assert(written.progress?.['taylor-scientific-management']?.page === 120, 'recherche : page 120');
+  assert(written.progress?.['taylor-scientific-management']?.anchor === 'p-120', 'recherche : ancre');
+  assert(written.userDocs?.[0]?.fileName === 'notes.txt', 'recherche : fileName');
+  assert(written.userDocs?.[0]?.note === 'fichier importé', 'recherche : note');
+  assert(written.userDocs?.[0]?.paragraphs?.[0]?.length === 250_000, 'recherche : paragraphe 250 000');
+  assert(cleanHistory(store.get().searchHistory).length === 12, 'affichage après recherche');
+  assert(cleanHistory(store.get().searchHistory)[0] === 'nouvelle-recherche', 'affichage de la nouvelle recherche');
+  const exported = await store.exportRaw();
+  assert(exported?.includes('nouvelle-recherche'), 'export sans la nouvelle recherche');
+  assert(exported?.includes('requete-39'), 'export sans la 40e recherche');
+  assert(exported?.includes(paragraph), 'export sans le long paragraphe');
+  assertNoPersonal(store.getPreserveReport());
+  assert(store.getPreserveReport().historyEntries === 41, `compteur ${store.getPreserveReport().historyEntries}`);
+
+  pushSearchHistory('REQUETE-00', store);
+  await wait(40);
+  const deduped = JSON.parse(bag.disk.get(STORAGE_KEY) ?? '{}') as { searchHistory?: unknown[] };
+  assert(deduped.searchHistory?.length === 41, `dédoublonnage ${deduped.searchHistory?.length}`);
+  assert(deduped.searchHistory?.[0] === 'requete-00', 'orthographe stockée remplacée');
+  assert(deduped.searchHistory?.filter((item) => typeof item === 'string' && item.toLowerCase() === 'requete-00').length === 1, 'doublon requete-00');
+  assert(deduped.searchHistory?.includes('nouvelle-recherche'), 'dédoublonnage a perdu la recherche ajoutée');
+  assert(deduped.searchHistory?.includes('requete-39'), 'dédoublonnage a perdu la queue');
+  const still = JSON.parse(bag.disk.get(STORAGE_KEY) ?? '{}') as {
+    userDocs?: { paragraphs?: string[]; note?: string; fileName?: string }[];
+    accountId?: string;
+  };
+  assert(still.accountId === 'local-account-kept' && still.userDocs?.[0]?.fileName === 'notes.txt', 'dédoublonnage : champs');
+  assert(still.userDocs?.[0]?.note === 'fichier importé', 'dédoublonnage : note');
+  assert(still.userDocs?.[0]?.paragraphs?.[0]?.length === 250_000, 'dédoublonnage : paragraphe');
+}
+
+async function shortHistoryDoesNotInventMissingEntries() {
+  const base = JSON.parse(readFixture('legacy-v1.json')) as { searchHistory: unknown[] };
+  base.searchHistory = ['bilan', 'swot', 'undefined', 4];
+  const raw = JSON.stringify(base);
+  const bag = memory({ [STORAGE_KEY]: raw });
+  const store = open(bag.storage);
+  await wait(30);
+  pushSearchHistory('marge', store);
+  await wait(40);
+  const written = JSON.parse(bag.disk.get(STORAGE_KEY) ?? '{}') as { searchHistory?: unknown[] };
+  assert(JSON.stringify(written.searchHistory) === JSON.stringify(['marge', 'bilan', 'swot', 'undefined', 4]), `historique inventé ou coupé ${JSON.stringify(written.searchHistory)}`);
+  assert(written.searchHistory?.length === 5, 'les entrées déjà stockées, y compris non affichées, restent ; aucune recherche n’est inventée');
+}
+
 async function historyOf40SurvivesUntilExplicitClear() {
   const base = JSON.parse(readFixture('legacy-v1.json')) as { searchHistory: string[] };
   base.searchHistory = Array.from({ length: 40 }, (_, i) => `requete-${String(i).padStart(2, '0')}`);
@@ -337,7 +415,7 @@ async function roundTrip250k() {
   await wait(50);
   const written = bag.disk.get(STORAGE_KEY) ?? '';
   assert(written.length >= 250_000, `taille ${written.length}`);
-  assert(written.length < DOCUMENTED_ANDROID_CURSOR_BYTES, '250 000 octets ont dépassé le plafond');
+  assert(written.length < PRODUCT_ENTRY_GUARD_BYTES, '250 000 octets ont dépassé le seuil produit');
   const parsed = JSON.parse(written) as { userDocs?: { id?: string; fileName?: string; paragraphs?: string[] }[]; accountId?: string };
   assert(parsed.accountId === 'local-account-kept', 'gros import a perdu accountId');
   assert(parsed.userDocs?.some((doc) => doc.fileName === 'notes.txt'), 'gros import a perdu fileName');

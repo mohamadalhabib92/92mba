@@ -13,12 +13,19 @@ export const appStore = createPersistedStore<AppState>(STORAGE_KEY, defaultAppSt
   mergeLate,
 });
 
-/** Ajoute une recherche à l'historique — jamais de valeur vide, « undefined » ou « null ». */
-export function pushSearchHistory(raw: unknown) {
+type HistoryWriter = {
+  set(patch: Partial<AppState> | ((current: AppState) => Partial<AppState>)): void;
+};
+
+/**
+ * Ajoute une recherche à l'historique — jamais de valeur vide, « undefined » ou « null ».
+ * Ne coupe pas la liste : l'écran n'en montre que 12, le JSON garde le reste.
+ */
+export function pushSearchHistory(raw: unknown, store: HistoryWriter = appStore) {
   const q = sanitizeSearchQuery(raw);
   if (!q) return;
-  appStore.set((s) => ({
-    searchHistory: [q, ...s.searchHistory.filter((h) => h.toLowerCase() !== q.toLowerCase())].slice(0, 12),
+  store.set((s) => ({
+    searchHistory: [q, ...s.searchHistory.filter((h) => h.toLowerCase() !== q.toLowerCase())],
   }));
 }
 

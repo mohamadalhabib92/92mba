@@ -25,6 +25,7 @@ export default function Search() {
     [docs, docLang, cat],
   );
   const hits = useMemo(() => searchDocs(pool, dq), [pool, dq]);
+  // Plafond d'affichage seulement. pushSearchHistory ne retire pas l'historique déjà stocké.
   const history = cleanHistory(s.searchHistory);
 
   useEffect(() => {

@@ -9,14 +9,16 @@ import { sha256Hex, utf8ByteLength } from './sha256';
 export const CURRENT_SCHEMA_VERSION = 1;
 
 /**
- * Plafond retenu avant d'écrire la clé unique.
- * AsyncStorage 2.x documente une fenêtre curseur Android d'environ 2 Mo par entrée
- * (pas une mesure faite sur un appareil ici). Au-delà, on n'écrit pas.
+ * Seuil produit : on n'écrit pas la clé unique si le JSON atteint 2 000 000 octets.
+ * Hypothèse seulement. La doc AsyncStorage 2.x parle d'une fenêtre curseur Android
+ * d'environ 2 Mo par entrée. Ce n'est pas une limite mesurée, ni un plafond
+ * universel iOS, web ou Android, ni une garantie technique.
  */
-export const DOCUMENTED_ANDROID_CURSOR_BYTES = 2_000_000;
+export const PRODUCT_ENTRY_GUARD_BYTES = 2_000_000;
 
-/** Historique affiché / réécrit : plafond déjà présent dans cleanHistory. */
-export const SEARCH_HISTORY_CAP = 12;
+export function exceedsProductEntryGuard(bytes: number): boolean {
+  return bytes >= PRODUCT_ENTRY_GUARD_BYTES;
+}
 
 /** Clé de copie pour une version refusée. Jamais la clé d'origine. */
 export function quarantineStorageKey(key: string): string {
@@ -67,10 +69,6 @@ export type ClassifyResult =
   | { action: 'adopt'; rawObject: Record<string, unknown> }
   | { action: 'quarantine'; reason: 'unsupported-version' | 'incoherent-version' }
   | { action: 'unreadable' };
-
-export function exceedsDocumentedCursor(bytes: number): boolean {
-  return bytes >= DOCUMENTED_ANDROID_CURSOR_BYTES;
-}
 
 function isPlain(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -201,6 +199,31 @@ function mergeDocs(rawVal: unknown, live: Doc[]): unknown {
 }
 
 /**
+ * Ajoute les recherches déjà en mémoire devant l'historique stocké.
+ * Une liste vide est un effacement explicite. Sinon, aucune entrée déjà présente
+ * n'est retirée : le plafond d'affichage ne sert pas de coupe du disque.
+ * La déduplication ne porte que sur la requête ajoutée (casse ignorée) et garde
+ * l'orthographe déjà stockée. Elle ne fusionne pas deux graphies anciennes.
+ * Une forme qui n'est pas un tableau est laissée telle quelle.
+ */
+export function mergePersistedSearchHistory(rawVal: unknown, live: string[]): unknown {
+  if (!Array.isArray(rawVal)) return rawVal === undefined ? live : rawVal;
+  if (live.length === 0) return [];
+  const next = rawVal.slice();
+  for (const query of [...live].reverse()) {
+    if (typeof query !== 'string' || !query) continue;
+    const idx = next.findIndex((item) => typeof item === 'string' && item.toLowerCase() === query.toLowerCase());
+    if (idx >= 0) {
+      const [kept] = next.splice(idx, 1);
+      next.unshift(kept);
+    } else {
+      next.unshift(query);
+    }
+  }
+  return next;
+}
+
+/**
  * Recompose l'objet à écrire.
  * Les clés inconnues, les types non adoptés et les documents non reconnus restent
  * tant que l'utilisateur n'a pas modifié cette partie.
@@ -213,7 +236,7 @@ export function composeSave(raw: Record<string, unknown> | null, live: AppState,
     if (key === 'progress') out.progress = mergeProgress(raw.progress, live.progress);
     else if (key === 'bookmarks') out.bookmarks = mergeBookmarks(raw.bookmarks, live.bookmarks);
     else if (key === 'userDocs') out.userDocs = mergeDocs(raw.userDocs, live.userDocs);
-    else if (key === 'searchHistory') out.searchHistory = live.searchHistory;
+    else if (key === 'searchHistory') out.searchHistory = mergePersistedSearchHistory(raw.searchHistory, live.searchHistory);
     else out[key] = live[key];
   }
   return out;
