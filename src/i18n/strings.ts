@@ -34,6 +34,10 @@ const fr = {
   searchPlaceholder: 'Rechercher un titre, un auteur, un mot…',
   searchHistory: 'Recherches récentes',
   clearHistory: 'Effacer',
+  clearHistoryPrompt:
+    'Effacer les recherches enregistrées sur cet appareil ? Les documents, la progression, les signets et les notes ne sont pas effacés.',
+  cancel: 'Annuler',
+  confirmClearHistory: 'Effacer',
   noResults: 'Aucun résultat',
   noResultsText: 'Essayez un autre mot ou retirez un filtre.',
   results: '{n} résultat(s)',
@@ -129,6 +133,20 @@ const fr = {
   confirmFreshStart: 'Appuyez encore pour repartir de zéro',
   freshStartHint: 'Une copie vérifiée est conservée. L’original sera ensuite effacé de cet appareil.',
   resetPending: 'Lecture des données en cours. Rien n’est effacé tant que la copie n’est pas vérifiée.',
+  storageVersionQuarantine:
+    'Les données de cet appareil sont d’une version que cette application ne reconnaît pas. Elles sont restées en place : rien n’a été remplacé.',
+  storageWriteFailed: 'L’enregistrement n’a pas abouti. Les données déjà présentes sur cet appareil sont inchangées.',
+  retrySave: 'Réessayer l’enregistrement',
+  preserveCounts:
+    'Sur cet appareil : {docs} document(s) ajouté(s), {progress} lecture(s), {bookmarks} liste(s) de signets, {history} recherche(s), {bytes} octets. Les textes ne sont pas affichés.',
+  preserveHash: 'Empreinte : {hash}',
+  exportRaw: 'Exporter une copie brute',
+  confirmExportRaw: 'Appuyez encore pour exporter sans afficher le contenu',
+  exportReady: 'Copie préparée ({bytes} octets). Le contenu n’est pas affiché ici.',
+  exportFailed: 'Export non terminé. Rien n’a été effacé.',
+  logout: 'Déconnexion',
+  logoutNoAccount: 'Aucun compte sur cet appareil. Rien n’a été effacé.',
+  resetNotLogout: 'Ceci efface les données de cet appareil. Ce n’est pas une déconnexion : il n’y a pas de compte.',
 };
 type Dict = Record<keyof typeof fr, string>;
 
@@ -160,6 +178,9 @@ const en: Dict = {
   searchPlaceholder: 'Search a title, author or word…',
   searchHistory: 'Recent searches',
   clearHistory: 'Clear',
+  clearHistoryPrompt: 'Erase the searches saved on this device? Documents, reading progress, bookmarks and notes are not erased.',
+  cancel: 'Cancel',
+  confirmClearHistory: 'Erase',
   noResults: 'No results',
   noResultsText: 'Try another word or remove a filter.',
   results: '{n} result(s)',
@@ -254,6 +275,20 @@ const en: Dict = {
   confirmFreshStart: 'Tap again to start over',
   freshStartHint: 'A verified copy is kept. The original will then be erased from this device.',
   resetPending: 'Still reading saved data. Nothing is erased until the copy is verified.',
+  storageVersionQuarantine:
+    'The data on this device is a version this app does not recognize. It was left in place: nothing was replaced.',
+  storageWriteFailed: 'The save did not finish. Data already on this device is unchanged.',
+  retrySave: 'Try saving again',
+  preserveCounts:
+    'On this device: {docs} added document(s), {progress} reading(s), {bookmarks} bookmark list(s), {history} search(es), {bytes} bytes. Texts are not shown.',
+  preserveHash: 'Fingerprint: {hash}',
+  exportRaw: 'Export a raw copy',
+  confirmExportRaw: 'Tap again to export without showing the contents',
+  exportReady: 'Copy prepared ({bytes} bytes). The contents are not shown here.',
+  exportFailed: 'Export did not finish. Nothing was erased.',
+  logout: 'Log out',
+  logoutNoAccount: 'No account on this device. Nothing was erased.',
+  resetNotLogout: 'This erases data on this device. It is not a log out: there is no account.',
 };
 
 const ar: Dict = {
@@ -284,6 +319,9 @@ const ar: Dict = {
   searchPlaceholder: 'ابحث عن عنوان أو مؤلف أو كلمة…',
   searchHistory: 'عمليات البحث الأخيرة',
   clearHistory: 'مسح',
+  clearHistoryPrompt: 'مسح عمليات البحث المحفوظة على هذا الجهاز؟ لا تُمس المستندات ولا تقدم القراءة ولا العلامات ولا الملاحظات.',
+  cancel: 'إلغاء',
+  confirmClearHistory: 'مسح',
   noResults: 'لا توجد نتائج',
   noResultsText: 'جرّب كلمة أخرى أو أزل عامل تصفية.',
   results: '{n} نتيجة',
@@ -378,6 +416,19 @@ const ar: Dict = {
   confirmFreshStart: 'اضغط مرة أخرى للبدء من جديد',
   freshStartHint: 'نسخة مؤكدة محفوظة. سيُحذف الأصل بعد ذلك من هذا الجهاز.',
   resetPending: 'ما زالت قراءة البيانات جارية. لا يُحذف شيء قبل التحقق من النسخة.',
+  storageVersionQuarantine: 'بيانات هذا الجهاز بإصدار لا يتعرف عليه التطبيق. بقيت في مكانها: لم يُستبدل شيء.',
+  storageWriteFailed: 'لم يكتمل الحفظ. البيانات الموجودة أصلًا على هذا الجهاز لم تتغير.',
+  retrySave: 'إعادة محاولة الحفظ',
+  preserveCounts:
+    'على هذا الجهاز: {docs} مستند مضاف، {progress} قراءة، {bookmarks} قائمة علامات، {history} بحث، {bytes} بايت. النصوص غير معروضة.',
+  preserveHash: 'البصمة: {hash}',
+  exportRaw: 'تصدير نسخة خام',
+  confirmExportRaw: 'اضغط مرة أخرى للتصدير دون عرض المحتوى',
+  exportReady: 'تم تجهيز النسخة ({bytes} بايت). المحتوى غير معروض هنا.',
+  exportFailed: 'لم يكتمل التصدير. لم يُحذف شيء.',
+  logout: 'تسجيل الخروج',
+  logoutNoAccount: 'لا يوجد حساب على هذا الجهاز. لم يُحذف شيء.',
+  resetNotLogout: 'هذا يمسح بيانات هذا الجهاز. ليس تسجيل خروج: لا يوجد حساب.',
 };
 
 export const dictionaries: Record<Lang, Dict> = { fr, en, ar };

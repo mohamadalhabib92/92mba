@@ -3,7 +3,9 @@ import { router } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Highlight } from '../../components/Highlight';
+import { HistoryClearConfirm } from '../../components/HistoryClear';
 import { Badge, Card, Chip, EmptyState, H1, H3, Muted, Row, Screen } from '../../components/ui';
+import { historyClearIntent, type HistoryClearChoice, type HistoryClearStep } from '../../lib/historyClear';
 import { useI18n } from '../../lib/i18n';
 import { allDocs, CATEGORY_LABELS, Category, licenseBadgeLabel, searchDocs } from '../../lib/library';
 import { appStore, cleanHistory, pushSearchHistory } from '../../lib/store';
@@ -16,6 +18,7 @@ export default function Search() {
   const { t, lang, dir } = useI18n();
   const s = appStore.useStore();
   const [q, setQ] = useState('');
+  const [clearStep, setClearStep] = useState<HistoryClearStep>('idle');
   const [docLang, setDocLang] = useState<Lang | 'all'>('all');
   const [cat, setCat] = useState<Category | 'all'>('all');
   const dq = useDebounced(sanitizeSearchQuery(q), 250);
@@ -25,6 +28,7 @@ export default function Search() {
     [docs, docLang, cat],
   );
   const hits = useMemo(() => searchDocs(pool, dq), [pool, dq]);
+  // Plafond d'affichage seulement. pushSearchHistory ne retire pas l'historique déjà stocké.
   const history = cleanHistory(s.searchHistory);
 
   useEffect(() => {
@@ -32,6 +36,12 @@ export default function Search() {
     const id = setTimeout(() => pushSearchHistory(dq), 1200);
     return () => clearTimeout(id);
   }, [dq]);
+
+  const chooseClear = (choice: HistoryClearChoice) => {
+    const next = historyClearIntent(clearStep, choice);
+    setClearStep(next.step);
+    if (next.erase) appStore.set({ searchHistory: [] });
+  };
 
   const open = (id: string, page: number) => {
     pushSearchHistory(q);
@@ -73,11 +83,18 @@ export default function Search() {
       {dq.trim().length < 2 ? (
         history.length ? (
           <Card>
-            <Row style={{ justifyContent: 'space-between' }}>
+            <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <H3>{t('searchHistory')}</H3>
-              <Pressable accessibilityRole="button" onPress={() => appStore.set({ searchHistory: [] })} hitSlop={10}>
-                <Muted style={{ color: colors.primary, fontWeight: '700' }}>{t('clearHistory')}</Muted>
-              </Pressable>
+              <HistoryClearConfirm
+                confirming={clearStep === 'confirming'}
+                prompt={t('clearHistoryPrompt')}
+                askLabel={t('clearHistory')}
+                cancelLabel={t('cancel')}
+                eraseLabel={t('confirmClearHistory')}
+                onAsk={() => chooseClear('ask')}
+                onCancel={() => chooseClear('cancel')}
+                onErase={() => chooseClear('erase')}
+              />
             </Row>
             <Row style={{ flexWrap: 'wrap' }}>
               {history.map((h) => (

@@ -1,0 +1,20 @@
+{
+  "lang": "en",
+  "fontScale": "large",
+  "progress": { "doc-mix": { "page": "12", "pages": "20", "updatedAt": "1", "anchor": "p3" } },
+  "bookmarks": { "doc-mix": ["1", 2] },
+  "searchHistory": ["marge"],
+  "userDocs": [
+    {
+      "id": "u",
+      "title": "T",
+      "author": "Moi",
+      "lang": "fr",
+      "category": "other",
+      "license": { "kind": "owned", "label": "Je possède" },
+      "summary": "",
+      "paragraphs": ["x"],
+      "fileRef": "upload://1"
+    }
+  ]
+}
