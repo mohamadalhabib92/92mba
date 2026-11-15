@@ -18,6 +18,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useI18n } from '../lib/i18n';
 import { uiFontStyle, useAppFonts } from '../lib/fonts';
 import { badgeTones, colors, radius, space } from '../theme';
+import { haptic } from './haptics';
+import { useTheme } from './theme';
 
 export function Screen({
   children,
@@ -32,6 +34,7 @@ export function Screen({
   contentStyle?: StyleProp<ViewStyle>;
   dir?: 'ltr' | 'rtl';
 }) {
+  const theme = useTheme();
   const inner = scroll ? (
     <ScrollView
       contentContainerStyle={[styles.content, contentStyle]}
@@ -45,27 +48,29 @@ export function Screen({
     </View>
   );
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.screen, dir ? { direction: dir } : null, style]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.screen, { backgroundColor: theme.palette.bg }, dir ? { direction: dir } : null, style]}>
       {inner}
     </SafeAreaView>
   );
 }
 
 type TProps = TextProps & { color?: string; center?: boolean };
-const mk = (base: TextStyle) =>
+const mk = (role: 'text' | 'muted', base: TextStyle) =>
   function T({ style, color, center, ...p }: TProps) {
     const { dir } = useI18n();
     const fonts = useAppFonts();
+    const theme = useTheme();
     const face = uiFontStyle(base.fontWeight, dir === 'rtl', fonts);
+    const ink = color ?? (role === 'muted' ? theme.palette.muted : theme.palette.text);
     return (
-      <Text {...p} style={[base, face, color ? { color } : null, center ? { textAlign: 'center' } : null, style]} />
+      <Text {...p} style={[base, face, { color: ink }, center ? { textAlign: 'center' } : null, style]} />
     );
   };
-export const H1 = mk({ fontSize: 28, fontWeight: '800', color: colors.text, letterSpacing: -0.5 });
-export const H2 = mk({ fontSize: 20, fontWeight: '700', color: colors.text });
-export const H3 = mk({ fontSize: 16, fontWeight: '700', color: colors.text });
-export const Body = mk({ fontSize: 15, lineHeight: 22, color: colors.text });
-export const Muted = mk({ fontSize: 13, lineHeight: 18, color: colors.muted });
+export const H1 = mk('text', { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 });
+export const H2 = mk('text', { fontSize: 20, fontWeight: '700' });
+export const H3 = mk('text', { fontSize: 16, fontWeight: '700' });
+export const Body = mk('text', { fontSize: 16, lineHeight: 24 });
+export const Muted = mk('muted', { fontSize: 13, lineHeight: 18 });
 
 export function Card({
   children,
@@ -78,19 +83,29 @@ export function Card({
   onPress?: () => void;
   accessibilityLabel?: string;
 }) {
+  const theme = useTheme();
+  const cardStyle = [
+    styles.card,
+    {
+      backgroundColor: theme.palette.surface,
+      borderColor: theme.palette.border,
+      shadowColor: theme.palette.shadow,
+      shadowOpacity: theme.reduceMotion ? 0 : theme.dark ? 0.35 : 0.08,
+    },
+  ];
   if (onPress) {
     return (
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
         onPress={onPress}
-        style={({ pressed }) => [styles.card, pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] }, style]}
+        style={({ pressed }) => [cardStyle, pressed && { opacity: 0.92, transform: theme.reduceMotion ? [] : [{ scale: 0.99 }] }, style]}
       >
         {children}
       </Pressable>
     );
   }
-  return <View style={[styles.card, style]}>{children}</View>;
+  return <View style={[cardStyle, style]}>{children}</View>;
 }
 
 export function Button({
@@ -118,17 +133,21 @@ export function Button({
 }) {
   const { dir } = useI18n();
   const fonts = useAppFonts();
+  const theme = useTheme();
   const face = uiFontStyle('700', dir === 'rtl', fonts);
   const bg =
     backgroundColor ??
-    (variant === 'primary' ? colors.primary : variant === 'secondary' ? colors.primarySoft : variant === 'danger' ? colors.danger : 'transparent');
-  const fg = labelColor ?? (variant === 'primary' || variant === 'danger' ? colors.onPrimary : colors.primary);
+    (variant === 'primary' ? theme.palette.primary : variant === 'secondary' ? theme.palette.primarySoft : variant === 'danger' ? colors.danger : 'transparent');
+  const fg = labelColor ?? (variant === 'primary' || variant === 'danger' ? theme.palette.onPrimary : theme.palette.primary);
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       disabled={disabled}
-      onPress={onPress}
+      onPress={() => {
+        if (!disabled && (variant === 'primary' || variant === 'danger')) void haptic(variant === 'danger' ? 'warn' : 'select');
+        onPress?.();
+      }}
       style={({ pressed }) => [
         styles.button,
         small && { minHeight: 36, paddingHorizontal: space.md },
@@ -156,6 +175,7 @@ export function Chip({
 }) {
   const { dir } = useI18n();
   const fonts = useAppFonts();
+  const theme = useTheme();
   const face = uiFontStyle('600', dir === 'rtl', fonts);
   return (
     <Pressable
@@ -163,9 +183,9 @@ export function Chip({
       accessibilityState={{ selected: !!active }}
       onPress={onPress}
       onLongPress={onLongPress}
-      style={[styles.chip, active && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+      style={[styles.chip, { borderColor: theme.palette.border, backgroundColor: active ? theme.palette.primary : theme.palette.surface }]}
     >
-      <Text style={[styles.chipText, face, active && { color: colors.onPrimary }]}>{label}</Text>
+      <Text style={[styles.chipText, face, { color: active ? theme.palette.onPrimary : theme.palette.text }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -184,11 +204,16 @@ export function Badge({ label, tone = 'neutral' }: { label: string; tone?: 'neut
   );
 }
 
-export function ProgressBar({ value, color = colors.primary, height = 6 }: { value: number; color?: string; height?: number }) {
+export function ProgressBar({ value, color, height = 6 }: { value: number; color?: string; height?: number }) {
+  const theme = useTheme();
   const v = Math.max(0, Math.min(1, value || 0));
   return (
-    <View style={{ height, borderRadius: height, backgroundColor: colors.surfaceAlt, overflow: 'hidden' }}>
-      <View style={{ width: `${v * 100}%`, height, backgroundColor: color, borderRadius: height }} />
+    <View
+      accessibilityRole="progressbar"
+      accessibilityValue={{ min: 0, max: 100, now: Math.round(v * 100) }}
+      style={{ height, borderRadius: height, backgroundColor: theme.palette.surfaceAlt, overflow: 'hidden' }}
+    >
+      <View style={{ width: `${v * 100}%`, height, backgroundColor: color ?? theme.palette.primary, borderRadius: height }} />
     </View>
   );
 }

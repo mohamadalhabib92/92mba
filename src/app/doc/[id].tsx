@@ -6,8 +6,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Highlight } from '../../components/Highlight';
 import { ReadingControls } from '../../components/ReadingControls';
 import { Badge, Button, EmptyState, Muted, Row, Slider } from '../../components/ui';
-import { useI18n } from '../../lib/i18n';
+import { keepMark, promoteMark } from '../../learn/actions';
+import { learnText } from '../../learn/copy';
 import { useAppFonts } from '../../lib/fonts';
+import { useI18n } from '../../lib/i18n';
 import { CATEGORY_LABELS, findDoc, licenseBadgeLabel, licenseStatusCodeOf, normalize, paginate } from '../../lib/library';
 import { appStore, setProgress, toggleBookmark } from '../../lib/store';
 import { useReaderPage } from './useReaderPage';
@@ -43,9 +45,11 @@ export default function Reader() {
   const fontScale = snapFontScale(s.fontScale);
   const fontSize = 18 * fontScale;
   const lineRatio = snapLineHeight(s.lineHeight);
-  const family = rtl
-    ? (fonts.arabic ?? (Platform.OS === 'ios' ? 'Geeza Pro' : 'serif'))
-    : (fonts.serif ?? (Platform.OS === 'web' ? 'Georgia, "Iowan Old Style", Palatino, serif' : Platform.OS === 'ios' ? 'Georgia' : 'serif'));
+  const family = s.dyslexia && !rtl && fonts.dyslexia
+    ? fonts.dyslexia
+    : rtl
+      ? (fonts.arabic ?? (Platform.OS === 'ios' ? 'Geeza Pro' : 'serif'))
+      : (fonts.serif ?? (Platform.OS === 'web' ? 'Georgia, "Iowan Old Style", Palatino, serif' : Platform.OS === 'ios' ? 'Georgia' : 'serif'));
   const letterSpacing = s.dyslexia ? Math.round(fontSize * 0.04 * 10) / 10 : 0;
   const column = readingColumnWidth(fontSize, s.readerMargin);
   const pad = readingPadding(s.readerMargin);
@@ -106,6 +110,12 @@ export default function Reader() {
           <Text style={{ color: theme.muted, fontSize: 12 }}>{t('page', { p: page + 1, n: pages.length })} · {t('percent', { n: pct })}</Text>
         </View>
         {iconBtn(isMarked ? 'bookmark' : 'bookmark-outline', isMarked ? t('removeBookmark') : t('addBookmark'), () => toggleBookmark(doc.id, page), isMarked)}
+        {iconBtn('color-wand-outline', learnText(lang, 'highlight'), () => {
+          const passage = (pages[page] ?? []).join('\n\n').slice(0, 500).trim();
+          if (!passage) return;
+          const markId = `${doc.id}:${page}:${passage.slice(0, 40)}`;
+          keepMark({ id: markId, docId: doc.id, page, text: passage, createdAt: Date.now() });
+        })}
         {iconBtn('information-circle-outline', t('info'), () => setPanel(panel === 'info' ? 'none' : 'info'), panel === 'info')}
       </View>
       <View style={[styles.tools, { backgroundColor: theme.bar }]}>
@@ -158,6 +168,28 @@ export default function Reader() {
               ) : null}
               {doc.license.gutenberg === 'stripped' ? <Text style={{ color: theme.muted, lineHeight: 20 }}>{t('gutenbergTodo')}</Text> : null}
               {doc.note ? <Text style={{ color: theme.muted, fontStyle: 'italic' }}>{doc.note}</Text> : null}
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  const passage = (pages[page] ?? []).join('\n\n').slice(0, 500).trim();
+                  if (!passage) return;
+                  const markId = `${doc.id}:${page}:${passage.slice(0, 40)}`;
+                  const existing = s.study.marks.find((mark) => mark.id === markId);
+                  if (!existing) keepMark({ id: markId, docId: doc.id, page, text: passage, createdAt: Date.now() });
+                  promoteMark(markId, learnText(lang, 'highlight'), passage, {
+                    lang: doc.lang,
+                    docId: doc.id,
+                    author: doc.author,
+                    date: doc.license.date || doc.year || 'à vérifier',
+                    source: doc.title,
+                    licence: doc.license.label,
+                    status: doc.license.statusCode ?? doc.license.kind,
+                  });
+                }}
+                style={{ minHeight: 44, justifyContent: 'center' }}
+              >
+                <Text style={{ color: theme.link, fontWeight: '700' }}>{learnText(lang, 'toCard')}</Text>
+              </Pressable>
             </View>
           ) : panel === 'bookmarks' ? (
             marks.length ? (

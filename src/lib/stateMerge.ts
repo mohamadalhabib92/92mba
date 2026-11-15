@@ -1,4 +1,5 @@
 import type { Lang } from '../i18n/strings';
+import { mergeStudy, sanitizeStudy, type StudyState } from '../learn/study';
 import type { ReaderMargin, ReaderTheme } from '../theme';
 import { snapFontScale, snapLineHeight, snapMargin } from '../theme';
 import type { Doc, LicenseKind, LicenseStatusCode } from './library';
@@ -21,6 +22,8 @@ export type AppState = {
   bookmarks: Record<string, number[]>;
   searchHistory: string[];
   userDocs: Doc[];
+  /** Cursus, répétition, confort. Absent des anciennes sauvegardes : défauts à la lecture, rien n'est effacé. */
+  study: StudyState;
 };
 
 export function defaultAppState(): AppState {
@@ -35,6 +38,7 @@ export function defaultAppState(): AppState {
     bookmarks: {},
     searchHistory: [],
     userDocs: [],
+    study: sanitizeStudy(undefined),
   };
 }
 
@@ -122,6 +126,7 @@ export function mergeStored(stored: Partial<AppState> | null | undefined): AppSt
     bookmarks: sanitizeBookmarks(stored.bookmarks),
     searchHistory: cleanHistory(stored.searchHistory),
     userDocs: sanitizeUserDocs(stored.userDocs),
+    study: sanitizeStudy((stored as { study?: unknown }).study),
   };
 }
 
@@ -171,5 +176,6 @@ export function mergeLate(current: AppState, stored: Partial<AppState>, touched?
     bookmarks,
     searchHistory: cleanHistory([...current.searchHistory, ...saved.searchHistory]),
     userDocs: [...docs.values()],
+    study: mergeStudy(current.study, saved.study, keep.has('study')),
   };
 }
