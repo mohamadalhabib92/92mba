@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { DocCard } from '../../components/DocCard';
+import { useStage } from '../../components/mac';
 import { Button, Card, Chip, EmptyState, H1, Muted, Row, Screen, Skeleton } from '../../components/ui';
 import { useI18n } from '../../lib/i18n';
 import { allDocs, Category, CATEGORY_LABELS } from '../../lib/library';
@@ -21,6 +22,7 @@ export default function Library() {
     return () => clearTimeout(id);
   }, []);
   const docs = useMemo(() => allDocs(s.userDocs), [s.userDocs]);
+  const { wide } = useStage();
   const cats = useMemo(() => Array.from(new Set(docs.map((d) => d.category))), [docs]);
   const filtered = docs.filter(
     (d) => (cat === 'all' || (cat === 'mine' ? d.userAdded : d.category === cat)) && (docLang === 'all' || d.lang === docLang),
@@ -64,9 +66,13 @@ export default function Library() {
           action={<Button label={t('add')} onPress={() => router.push('/add')} />}
         />
       ) : (
-        filtered.map((d) => (
-          <DocCard key={d.id} doc={d} progress={s.progress[d.id]} onPress={() => router.push({ pathname: '/doc/[id]', params: { id: d.id } })} />
-        ))
+        <View style={wide ? { flexDirection: 'row', flexWrap: 'wrap', gap: 12, width: '100%' } : { width: '100%', gap: 12 }}>
+          {filtered.map((d) => (
+            <View key={d.id} style={wide ? { width: '47%' } : { width: '100%' }}>
+              <DocCard doc={d} progress={s.progress[d.id]} onPress={() => router.push({ pathname: '/doc/[id]', params: { id: d.id } })} />
+            </View>
+          ))}
+        </View>
       )}
     </Screen>
   );

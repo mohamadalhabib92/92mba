@@ -6,13 +6,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Highlight } from '../../components/Highlight';
 import { ReadingControls } from '../../components/ReadingControls';
 import { Badge, Button, EmptyState, Muted, Row, Slider } from '../../components/ui';
-import { useI18n } from '../../lib/i18n';
+import { keepMark, promoteMark } from '../../learn/actions';
+import { learnText } from '../../learn/copy';
 import { useAppFonts } from '../../lib/fonts';
+import { useI18n } from '../../lib/i18n';
 import { CATEGORY_LABELS, findDoc, licenseBadgeLabel, licenseStatusCodeOf, normalize, paginate } from '../../lib/library';
 import { appStore, setProgress, toggleBookmark } from '../../lib/store';
 import { useReaderPage } from './useReaderPage';
 import { firstString, sanitizeSearchQuery } from '../../lib/textGuard';
 import { colors, readingColumnWidth, readingPadding, readerThemes, snapFontScale, snapLineHeight, ReaderTheme } from '../../theme';
+import { useMacArrows, useMacEscape, useMacFind, useStage } from '../../components/mac';
 
 const THEME_ORDER: ReaderTheme[] = ['light', 'sepia', 'dark'];
 
@@ -38,14 +41,17 @@ export default function Reader() {
     },
   });
   const fonts = useAppFonts();
+  const { isMac, wide } = useStage();
   const theme = readerThemes[s.readerTheme];
   const rtl = doc?.lang === 'ar';
   const fontScale = snapFontScale(s.fontScale);
-  const fontSize = 18 * fontScale;
+  const fontSize = (isMac ? 21 : 18) * fontScale;
   const lineRatio = snapLineHeight(s.lineHeight);
-  const family = rtl
-    ? (fonts.arabic ?? (Platform.OS === 'ios' ? 'Geeza Pro' : 'serif'))
-    : (fonts.serif ?? (Platform.OS === 'web' ? 'Georgia, "Iowan Old Style", Palatino, serif' : Platform.OS === 'ios' ? 'Georgia' : 'serif'));
+  const family = s.dyslexia && !rtl && fonts.dyslexia
+    ? fonts.dyslexia
+    : rtl
+      ? (fonts.arabic ?? (Platform.OS === 'ios' ? 'Geeza Pro' : 'serif'))
+      : (fonts.serif ?? (Platform.OS === 'web' ? 'Georgia, "Iowan Old Style", Palatino, serif' : Platform.OS === 'ios' ? 'Georgia' : 'serif'));
   const letterSpacing = s.dyslexia ? Math.round(fontSize * 0.04 * 10) / 10 : 0;
   const column = readingColumnWidth(fontSize, s.readerMargin);
   const pad = readingPadding(s.readerMargin);
@@ -55,7 +61,7 @@ export default function Reader() {
   }, [page, doc?.id]);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    if (Platform.OS !== 'web' || typeof window === 'undefined' || isMac || wide) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement | null)?.tagName === 'INPUT') return;
       if (e.key === 'ArrowRight') go(rtl ? page - 1 : page + 1);
@@ -63,7 +69,22 @@ export default function Reader() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [pages.length, rtl, page, go]);
+  }, [pages.length, rtl, page, go, isMac, wide]);
+
+  useMacArrows((action) => {
+    if (action !== 'left' && action !== 'right') return false;
+    go(action === 'left' ? (rtl ? page + 1 : page - 1) : rtl ? page - 1 : page + 1);
+    return true;
+  });
+  useMacFind(() => {
+    setPanel('find');
+    return true;
+  });
+  useMacEscape(() => {
+    if (panel === 'none') return false;
+    setPanel('none');
+    return true;
+  });
 
   const findQuery = sanitizeSearchQuery(find);
   const findHits = useMemo(() => {
@@ -99,13 +120,19 @@ export default function Reader() {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <View style={[styles.top, { backgroundColor: theme.bar }]}>
         {iconBtn('chevron-back', t('back'), () => (router.canGoBack() ? router.back() : router.replace('/')))}
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <Text numberOfLines={1} style={[styles.title, { color: theme.text }]}>
             {doc.title}
           </Text>
           <Text style={{ color: theme.muted, fontSize: 12 }}>{t('page', { p: page + 1, n: pages.length })} · {t('percent', { n: pct })}</Text>
         </View>
         {iconBtn(isMarked ? 'bookmark' : 'bookmark-outline', isMarked ? t('removeBookmark') : t('addBookmark'), () => toggleBookmark(doc.id, page), isMarked)}
+        {iconBtn('color-wand-outline', learnText(lang, 'highlight'), () => {
+          const passage = (pages[page] ?? []).join('\n\n').slice(0, 500).trim();
+          if (!passage) return;
+          const markId = `${doc.id}:${page}:${passage.slice(0, 40)}`;
+          keepMark({ id: markId, docId: doc.id, page, text: passage, createdAt: Date.now() });
+        })}
         {iconBtn('information-circle-outline', t('info'), () => setPanel(panel === 'info' ? 'none' : 'info'), panel === 'info')}
       </View>
       <View style={[styles.tools, { backgroundColor: theme.bar }]}>
@@ -158,6 +185,28 @@ export default function Reader() {
               ) : null}
               {doc.license.gutenberg === 'stripped' ? <Text style={{ color: theme.muted, lineHeight: 20 }}>{t('gutenbergTodo')}</Text> : null}
               {doc.note ? <Text style={{ color: theme.muted, fontStyle: 'italic' }}>{doc.note}</Text> : null}
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  const passage = (pages[page] ?? []).join('\n\n').slice(0, 500).trim();
+                  if (!passage) return;
+                  const markId = `${doc.id}:${page}:${passage.slice(0, 40)}`;
+                  const existing = s.study.marks.find((mark) => mark.id === markId);
+                  if (!existing) keepMark({ id: markId, docId: doc.id, page, text: passage, createdAt: Date.now() });
+                  promoteMark(markId, learnText(lang, 'highlight'), passage, {
+                    lang: doc.lang,
+                    docId: doc.id,
+                    author: doc.author,
+                    date: doc.license.date || doc.year || 'à vérifier',
+                    source: doc.title,
+                    licence: doc.license.label,
+                    status: doc.license.statusCode ?? doc.license.kind,
+                  });
+                }}
+                style={{ minHeight: 44, justifyContent: 'center' }}
+              >
+                <Text style={{ color: theme.link, fontWeight: '700' }}>{learnText(lang, 'toCard')}</Text>
+              </Pressable>
             </View>
           ) : panel === 'bookmarks' ? (
             marks.length ? (
@@ -299,10 +348,10 @@ function Meta({ k, v, c }: { k: string; v: string; c: string }) {
 }
 
 const styles = StyleSheet.create({
-  top: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 6 },
+  top: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 6 },
   title: { fontWeight: '700', fontSize: 15 },
   iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  tools: { flexDirection: 'row', justifyContent: 'center', gap: 4, paddingBottom: 6 },
+  tools: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 4, paddingBottom: 6 },
   tool: { minWidth: 52, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 3 },
   panel: { marginHorizontal: 12, marginBottom: 6, padding: 12, borderRadius: 14, borderWidth: 1 },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, minHeight: 36 },

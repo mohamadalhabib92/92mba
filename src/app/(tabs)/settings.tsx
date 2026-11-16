@@ -1,8 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Linking, Platform, Share } from 'react-native';
 import { ReadingControls } from '../../components/ReadingControls';
 import { Badge, Body, Button, Card, Chip, H1, H3, Muted, Row, Screen } from '../../components/ui';
+import { FOCUS_CHOICES, setComfort } from '../../learn/actions';
+import { learnText } from '../../learn/copy';
 import { useI18n } from '../../lib/i18n';
 import { FEATURE_AI } from '../../lib/features';
 import { PRIVACY_URL, SUPPORT_URL, supportEmail } from '../../lib/links';
@@ -66,6 +69,42 @@ export default function Settings() {
             <Chip key={l.code} label={l.label} active={lang === l.code} onPress={() => setLang(l.code)} />
           ))}
         </Row>
+      </Card>
+      <Card>
+        <H3>{learnText(lang, 'comfort')}</H3>
+        <Body>{learnText(lang, 'notMedical')}</Body>
+        <Muted>{learnText(lang, 'appearance')}</Muted>
+        <Row style={{ flexWrap: 'wrap' }}>
+          {(['system', 'light', 'dark'] as const).map((mode) => (
+            <Chip key={mode} label={learnText(lang, mode)} active={s.study.appearance === mode} onPress={() => setComfort({ appearance: mode })} />
+          ))}
+        </Row>
+        <Row style={{ flexWrap: 'wrap' }}>
+          <Chip label={learnText(lang, 'contrast')} active={s.study.highContrast} onPress={() => setComfort({ highContrast: !s.study.highContrast })} />
+          <Chip label={learnText(lang, 'motion')} active={s.study.reduceMotion === true} onPress={() => setComfort({ reduceMotion: s.study.reduceMotion === true ? null : true })} />
+        </Row>
+        <Muted>{learnText(lang, 'celebrate')}</Muted>
+        <Row style={{ flexWrap: 'wrap' }}>
+          {(['full', 'reduced', 'off'] as const).map((level) => (
+            <Chip key={level} label={learnText(lang, level)} active={s.study.celebrations === level} onPress={() => setComfort({ celebrations: level })} />
+          ))}
+        </Row>
+        <Muted>{learnText(lang, 'scheduler')}</Muted>
+        <Row style={{ flexWrap: 'wrap' }}>
+          <Chip label={learnText(lang, 'sm2')} active={s.study.scheduler === 'sm2'} onPress={() => setComfort({ scheduler: 'sm2' })} />
+          <Chip label={learnText(lang, 'fsrs')} active={s.study.scheduler === 'fsrs'} onPress={() => setComfort({ scheduler: 'fsrs' })} />
+        </Row>
+        <Muted>{learnText(lang, 'focusLen')}</Muted>
+        <Row style={{ flexWrap: 'wrap' }}>
+          {FOCUS_CHOICES.map((minutes) => (
+            <Chip key={minutes} label={`${minutes}`} active={s.study.focusMinutes === minutes} onPress={() => setComfort({ focusMinutes: minutes })} />
+          ))}
+        </Row>
+        <Chip label={learnText(lang, 'reminderToggle')} active={s.study.reminderEnabled} onPress={() => setComfort({ reminderEnabled: !s.study.reminderEnabled })} />
+        <Button variant="ghost" label={learnText(lang, 'focus')} onPress={() => router.push('/focus')} />
+        <Button variant="ghost" label={learnText(lang, 'glossary')} onPress={() => router.push('/glossary')} />
+        <Button variant="ghost" label={learnText(lang, 'formulas')} onPress={() => router.push('/formulas')} />
+        <Button variant="ghost" label={learnText(lang, 'capstone')} onPress={() => router.push('/capstone')} />
       </Card>
       <Card>
         <H3>{t('readerTheme')}</H3>

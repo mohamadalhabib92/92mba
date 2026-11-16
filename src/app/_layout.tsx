@@ -1,12 +1,14 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SuspenseFallback as RouteSuspense, ErrorBoundary as RouteErrorBoundary } from '../components/RouteFallback';
 import { BootFallback, BootSkeleton } from '../components/ui';
 import { FontProvider } from '../lib/fonts';
 import { I18nProvider, useI18n } from '../lib/i18n';
+import { ThemeProvider, useTheme } from '../components/theme';
+import { MacProvider } from '../components/mac';
 import { appStore, BOOT_TIMEOUT_MS } from '../lib/store';
 import { colors } from '../theme';
 
@@ -82,19 +84,35 @@ function Gate({ children }: { children: React.ReactNode }) {
   return <BootSkeleton />;
 }
 
+function ThemedShell({ children }: { children: React.ReactNode }) {
+  const theme = useTheme();
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.palette.bg }}>
+      <StatusBar style={theme.dark ? 'light' : 'dark'} hidden={Platform.isTV} />
+      <Stack
+        screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.palette.bg } }}
+        {...(Platform.isTV ? { initialRouteName: 'tv' as const } : {})}
+      >{children}</Stack>
+    </View>
+  );
+}
+
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <FontProvider>
         <I18nProvider>
-          <Gate>
-            <StatusBar style="dark" />
-            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="doc/[id]" />
-              <Stack.Screen name="add" options={{ presentation: 'modal' }} />
-            </Stack>
-          </Gate>
+          <ThemeProvider>
+            <MacProvider>
+              <Gate>
+                <ThemedShell>
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen name="doc/[id]" />
+                  <Stack.Screen name="add" options={{ presentation: 'modal' }} />
+                </ThemedShell>
+              </Gate>
+            </MacProvider>
+          </ThemeProvider>
         </I18nProvider>
       </FontProvider>
     </SafeAreaProvider>

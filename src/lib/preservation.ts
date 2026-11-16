@@ -1,3 +1,4 @@
+import { composeStudy } from '../learn/study';
 import type { Doc } from './library';
 import { mergeStored, type AppState, type Progress } from './stateMerge';
 import { sha256Hex, utf8ByteLength } from './sha256';
@@ -39,6 +40,7 @@ export const KNOWN_STATE_KEYS = [
   'bookmarks',
   'searchHistory',
   'userDocs',
+  'study',
 ] as const;
 
 export type VersionState = 'empty' | 'legacy' | 'v1' | 'unsupported' | 'incoherent' | 'unreadable';
@@ -237,6 +239,7 @@ export function composeSave(raw: Record<string, unknown> | null, live: AppState,
     else if (key === 'bookmarks') out.bookmarks = mergeBookmarks(raw.bookmarks, live.bookmarks);
     else if (key === 'userDocs') out.userDocs = mergeDocs(raw.userDocs, live.userDocs);
     else if (key === 'searchHistory') out.searchHistory = mergePersistedSearchHistory(raw.searchHistory, live.searchHistory);
+    else if (key === 'study') out.study = composeStudy(raw.study, live.study);
     else out[key] = live[key];
   }
   return out;

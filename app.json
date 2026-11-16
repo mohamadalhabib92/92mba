@@ -8,6 +8,7 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
+      "requireFullScreen": false,
       "bundleIdentifier": "ch.mohamadba.ninetytwomba",
       "buildNumber": "1",
       "config": {
@@ -15,6 +16,7 @@
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "UIApplicationSupportsIndirectInputEvents": true,
         "CFBundleDevelopmentRegion": "fr"
       },
       "privacyManifests": {
