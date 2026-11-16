@@ -5,7 +5,7 @@
  * expo-speech, expo-haptics et expo-document-picker n’ont pas de podspec tvOS.
  * expo-keep-awake déclare tvOS et reste. expo-router est patché à part.
  */
-const TV_AUTOLINK_EXCLUDE = ['expo-haptics', 'expo-speech', 'expo-document-picker'];
+const TV_AUTOLINK_EXCLUDE = ['expo-haptics', 'expo-speech', 'expo-document-picker', 'mba-mac'];
 
 /** Les xcframework Maven sont le cœur iOS upstream, pas le fork tvOS. */
 const TV_RN_CORE_FROM_SOURCE = '0';

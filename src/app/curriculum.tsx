@@ -28,7 +28,7 @@ export default function Curriculum() {
               key={mod.id}
               accessibilityLabel={pick(mod.title, lang)}
               onPress={() => router.push({ pathname: '/module/[id]', params: { id: mod.id } })}
-              style={{ width: columns ? '48%' : '100%' }}
+              style={{ width: columns ? '47%' : '100%' }}
             >
               <Badge label={t(mod.richness)} tone={mod.richness === 'rich' ? 'info' : 'neutral'} />
               <H3>{pick(mod.title, lang)}</H3>

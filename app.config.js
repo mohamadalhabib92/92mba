@@ -14,7 +14,8 @@ module.exports = ({ config }) => {
   if (!process.env.EXPO_NO_CAPABILITY_SYNC) {
     process.env.EXPO_NO_CAPABILITY_SYNC = '1';
   }
-  config.ios = { ...(config.ios ?? {}), appleTeamId: 'Y9XF9RY2BU' };
+  config.ios = { ...(config.ios ?? {}), appleTeamId: 'Y9XF9RY2BU', supportsTablet: true, requireFullScreen: false };
+  config.plugins = [...(config.plugins || []), './plugins/with-mac-ipad.js'];
   if (process.env.EAS_BUILD && config.experiments) {
     const { baseUrl, ...rest } = config.experiments;
     config.experiments = rest;

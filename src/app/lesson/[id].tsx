@@ -45,12 +45,20 @@ export default function LessonScreen() {
     const text =
       screen.kind === 'check' ? pick(screen.prompt, lang) : `${pick(screen.title, lang)}. ${pick(screen.body, lang)}`;
     if (spoken) {
-      Speech.stop();
+      try {
+        Speech.stop();
+      } catch {
+        /* voix absente sur cet appareil */
+      }
       setSpoken(false);
       return;
     }
     setSpoken(true);
-    Speech.speak(text, { language: speechLang, rate: 0.95, onDone: () => setSpoken(false), onStopped: () => setSpoken(false) });
+    try {
+      Speech.speak(text, { language: speechLang, rate: 0.95, onDone: () => setSpoken(false), onStopped: () => setSpoken(false) });
+    } catch {
+      setSpoken(false);
+    }
   };
   const advance = () => {
     if (!last) {

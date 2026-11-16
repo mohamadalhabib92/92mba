@@ -19,6 +19,7 @@ import { useI18n } from '../lib/i18n';
 import { uiFontStyle, useAppFonts } from '../lib/fonts';
 import { badgeTones, colors, radius, space } from '../theme';
 import { haptic } from './haptics';
+import { useMacPress, useStage } from './mac';
 import { useTheme } from './theme';
 
 export function Screen({
@@ -35,16 +36,18 @@ export function Screen({
   dir?: 'ltr' | 'rtl';
 }) {
   const theme = useTheme();
+  const { maxWidth } = useStage();
+  const column = [styles.maxWidth, { maxWidth }];
   const inner = scroll ? (
     <ScrollView
       contentContainerStyle={[styles.content, contentStyle]}
       keyboardShouldPersistTaps="handled"
     >
-      <View style={styles.maxWidth}>{children}</View>
+      <View style={column}>{children}</View>
     </ScrollView>
   ) : (
     <View style={[styles.content, { flex: 1 }, contentStyle]}>
-      <View style={[styles.maxWidth, { flex: 1 }]}>{children}</View>
+      <View style={[column, { flex: 1 }]}>{children}</View>
     </View>
   );
   return (
@@ -60,10 +63,17 @@ const mk = (role: 'text' | 'muted', base: TextStyle) =>
     const { dir } = useI18n();
     const fonts = useAppFonts();
     const theme = useTheme();
+    const { isMac } = useStage();
     const face = uiFontStyle(base.fontWeight, dir === 'rtl', fonts);
     const ink = color ?? (role === 'muted' ? theme.palette.muted : theme.palette.text);
+    const bump = isMac
+      ? {
+          fontSize: Math.round(Number(base.fontSize) * 1.15),
+          lineHeight: base.lineHeight ? Math.round(Number(base.lineHeight) * 1.15) : undefined,
+        }
+      : null;
     return (
-      <Text {...p} style={[base, face, { color: ink }, center ? { textAlign: 'center' } : null, style]} />
+      <Text {...p} style={[base, bump, face, { color: ink }, center ? { textAlign: 'center' } : null, style]} />
     );
   };
 export const H1 = mk('text', { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 });
@@ -84,11 +94,13 @@ export function Card({
   accessibilityLabel?: string;
 }) {
   const theme = useTheme();
+  const mac = useMacPress(onPress);
   const cardStyle = [
     styles.card,
     {
       backgroundColor: theme.palette.surface,
-      borderColor: theme.palette.border,
+      borderColor: mac.focused || mac.hovered ? theme.palette.primary : theme.palette.border,
+      borderWidth: mac.focused ? 3 : mac.hovered ? 2 : StyleSheet.hairlineWidth,
       shadowColor: theme.palette.shadow,
       shadowOpacity: theme.reduceMotion ? 0 : theme.dark ? 0.35 : 0.08,
     },
@@ -99,6 +111,7 @@ export function Card({
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
         onPress={onPress}
+        {...mac.bind}
         style={({ pressed }) => [cardStyle, pressed && { opacity: 0.92, transform: theme.reduceMotion ? [] : [{ scale: 0.99 }] }, style]}
       >
         {children}
@@ -134,6 +147,7 @@ export function Button({
   const { dir } = useI18n();
   const fonts = useAppFonts();
   const theme = useTheme();
+  const mac = useMacPress(disabled ? undefined : onPress);
   const face = uiFontStyle('700', dir === 'rtl', fonts);
   const bg =
     backgroundColor ??
@@ -148,11 +162,13 @@ export function Button({
         if (!disabled && (variant === 'primary' || variant === 'danger')) void haptic(variant === 'danger' ? 'warn' : 'select');
         onPress?.();
       }}
+      {...mac.bind}
       style={({ pressed }) => [
         styles.button,
         small && { minHeight: 36, paddingHorizontal: space.md },
         { backgroundColor: bg, opacity: disabled ? 0.45 : pressed ? 0.85 : 1 },
         variant === 'ghost' && { borderWidth: 1, borderColor: borderColor ?? colors.border },
+        (mac.focused || mac.hovered) && { borderWidth: mac.focused ? 3 : 2, borderColor: theme.palette.accent },
         style,
       ]}
     >
@@ -176,6 +192,7 @@ export function Chip({
   const { dir } = useI18n();
   const fonts = useAppFonts();
   const theme = useTheme();
+  const mac = useMacPress(onPress);
   const face = uiFontStyle('600', dir === 'rtl', fonts);
   return (
     <Pressable
@@ -183,7 +200,12 @@ export function Chip({
       accessibilityState={{ selected: !!active }}
       onPress={onPress}
       onLongPress={onLongPress}
-      style={[styles.chip, { borderColor: theme.palette.border, backgroundColor: active ? theme.palette.primary : theme.palette.surface }]}
+      {...mac.bind}
+      style={[
+        styles.chip,
+        { borderColor: mac.focused || mac.hovered ? theme.palette.accent : theme.palette.border, backgroundColor: active ? theme.palette.primary : theme.palette.surface },
+        mac.focused && { borderWidth: 3 },
+      ]}
     >
       <Text style={[styles.chipText, face, { color: active ? theme.palette.onPrimary : theme.palette.text }]}>{label}</Text>
     </Pressable>

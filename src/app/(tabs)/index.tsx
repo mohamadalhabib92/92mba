@@ -4,6 +4,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { DocCard } from '../../components/DocCard';
 import { Body, Button, Card, EmptyState, H1, H2, Muted, ProgressBar, Row, Screen } from '../../components/ui';
+import { useStage } from '../../components/mac';
 import { modules, PATH_92 } from '../../learn/content/catalog';
 import { learnText } from '../../learn/copy';
 import { pick } from '../../learn/l10n';
@@ -30,6 +31,7 @@ export default function Home() {
   const bookmarks = Object.values(s.bookmarks).reduce((n, b) => n + b.length, 0);
   const discover = docs.filter((d) => !s.progress[d.id]).slice(0, 3);
   const tLearn = (key: Parameters<typeof learnText>[1], vars?: Record<string, string | number>) => learnText(lang, key, vars);
+  const { wide } = useStage();
   const due = reviewIds(modules, s.study, Date.now()).length;
   const resumeLesson = s.study.resume?.kind === 'lesson' ? s.study.resume.id : null;
   const pathModule = s.study.pathStartedAt ? expectedModule(PATH_92, s.study.pathStartedAt, Date.now()) : null;
@@ -38,8 +40,8 @@ export default function Home() {
   const pathMod = pathModule ? modules.find((mod) => mod.id === pathModule) : undefined;
   const openLesson = resumeLesson ?? (pathMod ? nextLessonId(pathMod, s.study) : null);
 
-  return (
-    <Screen dir={dir}>
+  const studyColumn = (
+    <>
       <View style={styles.hero}>
         <Muted style={{ color: colors.accent, fontWeight: '800', letterSpacing: 2 }}>92'MBA</Muted>
         <H1 style={{ color: '#fff' }}>{t('continueReading')}</H1>
@@ -69,7 +71,11 @@ export default function Home() {
           <Body>{pick(weakModule.title, lang)}</Body>
         </Card>
       ) : null}
+    </>
+  );
 
+  const readingColumn = (
+    <>
       {current ? (
         <Card onPress={() => router.push({ pathname: '/doc/[id]', params: { id: current.doc.id } })}>
           <Row>
@@ -125,6 +131,22 @@ export default function Home() {
           ))}
         </>
       ) : null}
+    </>
+  );
+
+  return (
+    <Screen dir={dir}>
+      {wide ? (
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 24, width: '100%' }}>
+          <View style={{ flex: 1, gap: 16 }}>{studyColumn}</View>
+          <View style={{ flex: 1, gap: 16 }}>{readingColumn}</View>
+        </View>
+      ) : (
+        <>
+          {studyColumn}
+          {readingColumn}
+        </>
+      )}
     </Screen>
   );
 }

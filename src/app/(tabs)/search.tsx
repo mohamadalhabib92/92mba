@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import { router, useIsFocused } from 'expo-router';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Highlight } from '../../components/Highlight';
 import { HistoryClearConfirm } from '../../components/HistoryClear';
@@ -13,6 +13,7 @@ import { sanitizeSearchQuery } from '../../lib/textGuard';
 import { useDebounced } from '../../lib/useDebounced';
 import { LANGS, Lang } from '../../i18n/strings';
 import { colors } from '../../theme';
+import { useMacFind } from '../../components/mac';
 
 export default function Search() {
   const { t, lang, dir } = useI18n();
@@ -28,6 +29,13 @@ export default function Search() {
     [docs, docLang, cat],
   );
   const hits = useMemo(() => searchDocs(pool, dq), [pool, dq]);
+  const focused = useIsFocused();
+  const inputRef = useRef<{ focus: () => void } | null>(null);
+  useMacFind(() => {
+    if (!focused) return false;
+    inputRef.current?.focus();
+    return true;
+  });
   // Plafond d'affichage seulement. pushSearchHistory ne retire pas l'historique déjà stocké.
   const history = cleanHistory(s.searchHistory);
 
@@ -54,6 +62,9 @@ export default function Search() {
       <View style={styles.inputWrap}>
         <Ionicons name="search" size={18} color={colors.muted} />
         <TextInput
+          ref={(node) => {
+            inputRef.current = node;
+          }}
           value={q}
           onChangeText={setQ}
           placeholder={t('searchPlaceholder')}

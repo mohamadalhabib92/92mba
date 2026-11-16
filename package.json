@@ -17,6 +17,7 @@
     "expo-router": "~58.0.26",
     "expo-speech": "~58.0.3",
     "expo-status-bar": "~58.0.4",
+    "mba-mac": "file:./modules/mba-mac",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-native": "0.88.0",
@@ -39,7 +40,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "tsx src/lib/passe1.check.ts && tsx src/lib/preservation.check.ts && tsx src/learn/srs.check.ts && tsx src/learn/study.check.ts && node scripts/passe1-scan.mjs && node scripts/tv.check.mjs",
+    "test": "tsx src/lib/passe1.check.ts && tsx src/lib/preservation.check.ts && tsx src/learn/srs.check.ts && tsx src/learn/study.check.ts && tsx src/lib/stage.check.ts && node scripts/passe1-scan.mjs && node scripts/tv.check.mjs && node scripts/mac.check.mjs",
     "export:web": "expo export -p web && node scripts/pwa.mjs",
     "icons": "python3 scripts/make-icons.py"
   },

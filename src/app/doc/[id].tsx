@@ -15,6 +15,7 @@ import { appStore, setProgress, toggleBookmark } from '../../lib/store';
 import { useReaderPage } from './useReaderPage';
 import { firstString, sanitizeSearchQuery } from '../../lib/textGuard';
 import { colors, readingColumnWidth, readingPadding, readerThemes, snapFontScale, snapLineHeight, ReaderTheme } from '../../theme';
+import { useMacArrows, useMacEscape, useMacFind, useStage } from '../../components/mac';
 
 const THEME_ORDER: ReaderTheme[] = ['light', 'sepia', 'dark'];
 
@@ -40,10 +41,11 @@ export default function Reader() {
     },
   });
   const fonts = useAppFonts();
+  const { isMac, wide } = useStage();
   const theme = readerThemes[s.readerTheme];
   const rtl = doc?.lang === 'ar';
   const fontScale = snapFontScale(s.fontScale);
-  const fontSize = 18 * fontScale;
+  const fontSize = (isMac ? 21 : 18) * fontScale;
   const lineRatio = snapLineHeight(s.lineHeight);
   const family = s.dyslexia && !rtl && fonts.dyslexia
     ? fonts.dyslexia
@@ -59,7 +61,7 @@ export default function Reader() {
   }, [page, doc?.id]);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    if (Platform.OS !== 'web' || typeof window === 'undefined' || isMac || wide) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement | null)?.tagName === 'INPUT') return;
       if (e.key === 'ArrowRight') go(rtl ? page - 1 : page + 1);
@@ -67,7 +69,22 @@ export default function Reader() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [pages.length, rtl, page, go]);
+  }, [pages.length, rtl, page, go, isMac, wide]);
+
+  useMacArrows((action) => {
+    if (action !== 'left' && action !== 'right') return false;
+    go(action === 'left' ? (rtl ? page + 1 : page - 1) : rtl ? page - 1 : page + 1);
+    return true;
+  });
+  useMacFind(() => {
+    setPanel('find');
+    return true;
+  });
+  useMacEscape(() => {
+    if (panel === 'none') return false;
+    setPanel('none');
+    return true;
+  });
 
   const findQuery = sanitizeSearchQuery(find);
   const findHits = useMemo(() => {
@@ -103,7 +120,7 @@ export default function Reader() {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <View style={[styles.top, { backgroundColor: theme.bar }]}>
         {iconBtn('chevron-back', t('back'), () => (router.canGoBack() ? router.back() : router.replace('/')))}
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <Text numberOfLines={1} style={[styles.title, { color: theme.text }]}>
             {doc.title}
           </Text>
@@ -331,10 +348,10 @@ function Meta({ k, v, c }: { k: string; v: string; c: string }) {
 }
 
 const styles = StyleSheet.create({
-  top: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 6 },
+  top: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 6 },
   title: { fontWeight: '700', fontSize: 15 },
   iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  tools: { flexDirection: 'row', justifyContent: 'center', gap: 4, paddingBottom: 6 },
+  tools: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 4, paddingBottom: 6 },
   tool: { minWidth: 52, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 3 },
   panel: { marginHorizontal: 12, marginBottom: 6, padding: 12, borderRadius: 14, borderWidth: 1 },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, minHeight: 36 },

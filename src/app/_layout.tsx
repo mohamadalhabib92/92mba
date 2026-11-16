@@ -8,6 +8,7 @@ import { BootFallback, BootSkeleton } from '../components/ui';
 import { FontProvider } from '../lib/fonts';
 import { I18nProvider, useI18n } from '../lib/i18n';
 import { ThemeProvider, useTheme } from '../components/theme';
+import { MacProvider } from '../components/mac';
 import { appStore, BOOT_TIMEOUT_MS } from '../lib/store';
 import { colors } from '../theme';
 
@@ -102,13 +103,15 @@ export default function RootLayout() {
       <FontProvider>
         <I18nProvider>
           <ThemeProvider>
-            <Gate>
-              <ThemedShell>
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="doc/[id]" />
-                <Stack.Screen name="add" options={{ presentation: 'modal' }} />
-              </ThemedShell>
-            </Gate>
+            <MacProvider>
+              <Gate>
+                <ThemedShell>
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen name="doc/[id]" />
+                  <Stack.Screen name="add" options={{ presentation: 'modal' }} />
+                </ThemedShell>
+              </Gate>
+            </MacProvider>
           </ThemeProvider>
         </I18nProvider>
       </FontProvider>

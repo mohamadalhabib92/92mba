@@ -4,6 +4,7 @@ import { Pressable, View } from 'react-native';
 import { useI18n } from '../lib/i18n';
 import type { Provenance } from '../learn/types';
 import { useTheme } from './theme';
+import { useMacPress } from './mac';
 import { Body, Button, H1, Muted, ProgressBar } from './ui';
 
 export function BackButton() {
@@ -44,18 +45,20 @@ export function PageTitle({ kicker, title, text }: { kicker?: string; title: str
 
 export function Choice({ label, selected, onPress }: { label: string; selected?: boolean; onPress: () => void }) {
   const theme = useTheme();
+  const mac = useMacPress(onPress);
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: !!selected }}
       onPress={onPress}
+      {...mac.bind}
       style={{
         minHeight: 52,
         borderRadius: 16,
         padding: 14,
-        borderWidth: selected ? 2 : 1,
-        borderColor: selected ? theme.palette.primary : theme.palette.border,
-        backgroundColor: selected ? theme.palette.primarySoft : theme.palette.surface,
+        borderWidth: mac.focused ? 3 : selected ? 2 : 1,
+        borderColor: mac.focused || mac.hovered || selected ? theme.palette.primary : theme.palette.border,
+        backgroundColor: selected || mac.hovered ? theme.palette.primarySoft : theme.palette.surface,
       }}
     >
       <Body>{label}</Body>
