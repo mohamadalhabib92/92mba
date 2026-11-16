@@ -1,7 +1,7 @@
 import * as Speech from 'expo-speech';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { BackButton, Choice, PageTitle, ProvenanceLine, ScreenProgress } from '../../components/learnChrome';
 import { haptic } from '../../components/haptics';
 import { Body, Button, Card, H2, Screen } from '../../components/ui';
@@ -41,6 +41,7 @@ export default function LessonScreen() {
   const last = index >= lesson.screens.length - 1;
   const speechLang = lang === 'ar' ? 'ar' : lang === 'en' ? 'en-US' : 'fr-FR';
   const speak = () => {
+    if (Platform.isTV) return;
     const text =
       screen.kind === 'check' ? pick(screen.prompt, lang) : `${pick(screen.title, lang)}. ${pick(screen.body, lang)}`;
     if (spoken) {

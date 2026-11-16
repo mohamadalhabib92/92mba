@@ -1,9 +1,9 @@
 import * as Haptics from 'expo-haptics';
 import { Platform } from 'react-native';
 
-/** Retour tactile léger. Sur le web, ou si l’appareil refuse, rien ne casse. */
+/** Retour tactile léger. Sur le web et sur Apple TV, rien ne part vers un moteur. */
 export async function haptic(kind: 'select' | 'success' | 'warn' = 'select') {
-  if (Platform.OS === 'web') return;
+  if (Platform.OS === 'web' || Platform.isTV) return;
   try {
     if (kind === 'success') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     else if (kind === 'warn') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);

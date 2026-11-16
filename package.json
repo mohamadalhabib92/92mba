@@ -27,16 +27,19 @@
   "devDependencies": {
     "@types/react": "~19.3.0",
     "react-test-renderer": "^19.3.0",
+    "@react-native-tvos/config-tv": "^0.1.7",
     "tsx": "^4.23.15",
     "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
+    "eas-build-pre-install": "node scripts/eas-tv-preinstall.mjs",
+    "eas-build-post-install": "node scripts/eas-tv-preinstall.mjs --check-installed",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "tsx src/lib/passe1.check.ts && tsx src/lib/preservation.check.ts && tsx src/learn/srs.check.ts && tsx src/learn/study.check.ts && node scripts/passe1-scan.mjs",
+    "test": "tsx src/lib/passe1.check.ts && tsx src/lib/preservation.check.ts && tsx src/learn/srs.check.ts && tsx src/learn/study.check.ts && node scripts/passe1-scan.mjs && node scripts/tv.check.mjs",
     "export:web": "expo export -p web && node scripts/pwa.mjs",
     "icons": "python3 scripts/make-icons.py"
   },

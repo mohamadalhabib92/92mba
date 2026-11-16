@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SuspenseFallback as RouteSuspense, ErrorBoundary as RouteErrorBoundary } from '../components/RouteFallback';
 import { BootFallback, BootSkeleton } from '../components/ui';
@@ -87,8 +87,11 @@ function ThemedShell({ children }: { children: React.ReactNode }) {
   const theme = useTheme();
   return (
     <View style={{ flex: 1, backgroundColor: theme.palette.bg }}>
-      <StatusBar style={theme.dark ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.palette.bg } }}>{children}</Stack>
+      <StatusBar style={theme.dark ? 'light' : 'dark'} hidden={Platform.isTV} />
+      <Stack
+        screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.palette.bg } }}
+        {...(Platform.isTV ? { initialRouteName: 'tv' as const } : {})}
+      >{children}</Stack>
     </View>
   );
 }
