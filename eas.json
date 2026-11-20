@@ -18,10 +18,26 @@
     "production": {
       "autoIncrement": true,
       "env": { "EXPO_NO_CAPABILITY_SYNC": "1" }
+    },
+    "production-tv": {
+      "autoIncrement": false,
+      "env": {
+        "EXPO_TV": "1",
+        "EXPO_NO_CAPABILITY_SYNC": "1",
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
+        "RCT_USE_PREBUILT_RNCORE": "0",
+        "EXPO_USE_PRECOMPILED_MODULES": "0"
+      },
+      "ios": {
+        "simulator": false
+      }
     }
   },
   "submit": {
     "production": {
+      "ios": { "appleTeamId": "Y9XF9RY2BU" }
+    },
+    "production-tv": {
       "ios": { "appleTeamId": "Y9XF9RY2BU" }
     }
   }

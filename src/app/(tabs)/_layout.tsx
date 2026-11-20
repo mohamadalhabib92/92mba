@@ -2,10 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router/js-tabs';
 import React from 'react';
 import { useI18n } from '../../lib/i18n';
-import { colors } from '../../theme';
+import { useTheme } from '../../components/theme';
+import { useStage } from '../../components/mac';
 
 export default function TabsLayout() {
   const { t } = useI18n();
+  const theme = useTheme();
+  const { wide } = useStage();
   const icon =
     (name: keyof typeof Ionicons.glyphMap) =>
     ({ color, size }: { color: import('react-native').ColorValue; size: number }) => <Ionicons name={name} color={(color ?? undefined) as string | undefined} size={size} />;
@@ -13,9 +16,26 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
+        tabBarActiveTintColor: theme.palette.primary,
+        tabBarInactiveTintColor: theme.palette.muted,
+        tabBarPosition: wide ? 'left' : 'bottom',
+        tabBarStyle: wide
+          ? {
+              backgroundColor: theme.glass.surface,
+              borderRightColor: theme.glass.highlight,
+              borderRightWidth: 1,
+              width: 240,
+              minHeight: 44,
+            }
+          : {
+              backgroundColor: theme.glass.surface,
+              borderTopColor: theme.glass.highlight,
+              borderTopWidth: 1,
+              borderBottomColor: theme.glass.shade,
+              borderBottomWidth: theme.glass.solid ? 0 : 2,
+              minHeight: 56,
+            },
+        tabBarItemStyle: { minHeight: 44 },
         tabBarLabelStyle: { fontWeight: '600' },
       }}
     >

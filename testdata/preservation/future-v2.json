@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 2,
+  "lang": "ar",
+  "readerTheme": "dark",
+  "progress": { "future-doc": { "page": 3, "pages": 10, "updatedAt": 9, "mastery": 0.5 } },
+  "accountId": "future-user",
+  "userDocs": [
+    {
+      "id": "future-notes",
+      "title": "Secret futur",
+      "author": "Moi",
+      "lang": "fr",
+      "category": "other",
+      "license": { "kind": "owned", "label": "x" },
+      "summary": "",
+      "paragraphs": ["ne pas adopter"]
+    }
+  ]
+}
