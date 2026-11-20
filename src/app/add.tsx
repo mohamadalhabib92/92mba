@@ -9,7 +9,7 @@ import { useI18n } from '../lib/i18n';
 import { Category, CATEGORY_LABELS, Doc, LicenseKind, LicenseStatusCode } from '../lib/library';
 import { appStore } from '../lib/store';
 import { LANGS, Lang } from '../i18n/strings';
-import { colors } from '../theme';
+import { useTheme } from '../components/theme';
 
 async function readPicked(asset: DocumentPicker.DocumentPickerAsset): Promise<string> {
   if (Platform.OS === 'web' && asset.file) return asset.file.text();
@@ -18,6 +18,14 @@ async function readPicked(asset: DocumentPicker.DocumentPickerAsset): Promise<st
 
 export default function AddDoc() {
   const { t, lang, dir } = useI18n();
+  const theme = useTheme();
+  const field = {
+    borderColor: theme.glass.hairline,
+    borderTopColor: theme.glass.highlight,
+    borderBottomColor: theme.glass.shade,
+    color: theme.palette.text,
+    backgroundColor: theme.glass.surface,
+  };
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [text, setText] = useState('');
@@ -78,17 +86,17 @@ export default function AddDoc() {
         <H1>{t('add')}</H1>
         <Button small variant="ghost" label={t('close')} onPress={() => (router.canGoBack() ? router.back() : router.replace('/library'))} />
       </Row>
-      <Card style={{ backgroundColor: '#FFF6DC' }}>
+      <Card style={{ backgroundColor: theme.palette.noticeBg }}>
         <Row>
-          <Ionicons name="shield-checkmark-outline" size={18} color={colors.accentInk} />
-          <Body style={{ flex: 1 }}>{t('rightsNotice')}</Body>
+          <Ionicons name="shield-checkmark-outline" size={18} color={theme.palette.noticeText} />
+          <Body style={{ flex: 1, color: theme.palette.noticeText }}>{t('rightsNotice')}</Body>
         </Row>
       </Card>
       <Card>
         <H3>{t('title')}</H3>
-        <TextInput value={title} onChangeText={setTitle} style={styles.input} placeholder={t('title')} placeholderTextColor={colors.muted} />
+        <TextInput accessibilityLabel={t('title')} value={title} onChangeText={setTitle} allowFontScaling maxFontSizeMultiplier={2} style={[styles.input, field]} placeholder={t('title')} placeholderTextColor={theme.palette.muted} />
         <H3>{t('author')}</H3>
-        <TextInput value={author} onChangeText={setAuthor} style={styles.input} placeholder={t('author')} placeholderTextColor={colors.muted} />
+        <TextInput accessibilityLabel={t('author')} value={author} onChangeText={setAuthor} allowFontScaling maxFontSizeMultiplier={2} style={[styles.input, field]} placeholder={t('author')} placeholderTextColor={theme.palette.muted} />
         <H3>{t('language')}</H3>
         <Row style={{ flexWrap: 'wrap' }}>
           {LANGS.map((l) => (
@@ -109,38 +117,42 @@ export default function AddDoc() {
           <Chip label={t('licPD')} active={kind === 'public-domain'} onPress={() => setKind('public-domain')} />
           <Chip label={t('licOpen')} active={kind === 'open'} onPress={() => setKind('open')} />
         </Row>
-        <TextInput value={details} onChangeText={setDetails} style={styles.input} placeholder={t('licenseDetails')} placeholderTextColor={colors.muted} />
+        <TextInput accessibilityLabel={t('licenseDetails')} value={details} onChangeText={setDetails} allowFontScaling maxFontSizeMultiplier={2} style={[styles.input, field]} placeholder={t('licenseDetails')} placeholderTextColor={theme.palette.muted} />
       </Card>
       <Card>
         <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
           <H3>{t('text')}</H3>
-          <Button small variant="secondary" label={t('importTxt')} icon={<Ionicons name="document-attach-outline" size={16} color={colors.primary} />} onPress={pick} />
+          <Button small variant="secondary" label={t('importTxt')} icon={<Ionicons name="document-attach-outline" size={16} color={theme.palette.primary} />} onPress={pick} />
         </Row>
         <TextInput
           value={text}
           onChangeText={setText}
           multiline
-          style={[styles.input, { minHeight: 200, textAlignVertical: 'top' }]}
+          accessibilityLabel={t('text')}
+          allowFontScaling
+          maxFontSizeMultiplier={2}
+          style={[styles.input, field, { minHeight: 200, textAlignVertical: 'top' }]}
           placeholder={t('pasteText')}
-          placeholderTextColor={colors.muted}
+          placeholderTextColor={theme.palette.muted}
         />
         {text ? <Muted>{text.length.toLocaleString()} car.</Muted> : null}
       </Card>
       {error ? <Badge label={error} tone="warn" /> : null}
-      <Button label={t('save')} icon={<Ionicons name="checkmark" size={18} color="#fff" />} onPress={save} />
+      <Button label={t('save')} icon={<Ionicons name="checkmark" size={18} color={theme.palette.onPrimary} />} onPress={save} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   input: {
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderTopWidth: 1,
+    borderBottomWidth: 2,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 15,
-    color: colors.text,
-    backgroundColor: colors.bg,
+    fontSize: 16,
+    minHeight: 44,
   },
 });

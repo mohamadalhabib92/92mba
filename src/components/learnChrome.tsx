@@ -49,6 +49,7 @@ export function Choice({ label, selected, onPress }: { label: string; selected?:
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ selected: !!selected }}
       onPress={onPress}
       {...mac.bind}
@@ -56,9 +57,16 @@ export function Choice({ label, selected, onPress }: { label: string; selected?:
         minHeight: 52,
         borderRadius: 16,
         padding: 14,
-        borderWidth: mac.focused ? 3 : selected ? 2 : 1,
-        borderColor: mac.focused || mac.hovered || selected ? theme.palette.primary : theme.palette.border,
-        backgroundColor: selected || mac.hovered ? theme.palette.primarySoft : theme.palette.surface,
+        justifyContent: 'center',
+        borderTopWidth: mac.focused ? 3 : 1,
+        borderBottomWidth: mac.focused ? 3 : 2,
+        borderLeftWidth: mac.focused ? 3 : 1,
+        borderRightWidth: mac.focused ? 3 : 1,
+        borderTopColor: mac.focused || mac.hovered ? theme.palette.accent : theme.glass.highlight,
+        borderBottomColor: mac.focused || mac.hovered || selected ? theme.palette.primary : theme.glass.shade,
+        borderLeftColor: mac.focused || mac.hovered || selected ? theme.palette.primary : theme.glass.hairline,
+        borderRightColor: mac.focused || mac.hovered || selected ? theme.palette.primary : theme.glass.hairline,
+        backgroundColor: selected || mac.hovered ? theme.palette.primarySoft : theme.glass.surface,
       }}
     >
       <Body>{label}</Body>

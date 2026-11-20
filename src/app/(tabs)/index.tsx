@@ -12,10 +12,12 @@ import { expectedModule, levelFor, nextLessonId, pathDayIndex, reminderDue, REVI
 import { useI18n } from '../../lib/i18n';
 import { allDocs } from '../../lib/library';
 import { appStore } from '../../lib/store';
+import { useTheme } from '../../components/theme';
 import { colors } from '../../theme';
 
 export default function Home() {
   const { t, dir, lang } = useI18n();
+  const theme = useTheme();
   const s = appStore.useStore();
   const docs = useMemo(() => allDocs(s.userDocs), [s.userDocs]);
   const recent = useMemo(
@@ -42,8 +44,8 @@ export default function Home() {
 
   const studyColumn = (
     <>
-      <View style={styles.hero}>
-        <Muted style={{ color: colors.accent, fontWeight: '800', letterSpacing: 2 }}>92'MBA</Muted>
+      <View style={[styles.hero, theme.glass.solid && styles.heroSolid]}>
+        <Muted style={{ color: colors.accent, fontWeight: '800', letterSpacing: dir === 'rtl' ? 0 : 2 }}>92'MBA</Muted>
         <H1 style={{ color: '#fff' }}>{t('continueReading')}</H1>
         <Body style={{ color: '#D7DCEA' }}>{t('tagline')}</Body>
       </View>
@@ -77,21 +79,24 @@ export default function Home() {
   const readingColumn = (
     <>
       {current ? (
-        <Card onPress={() => router.push({ pathname: '/doc/[id]', params: { id: current.doc.id } })}>
+        <Card
+          accessibilityLabel={`${current.doc.title}. ${t('continueReading')}`}
+          onPress={() => router.push({ pathname: '/doc/[id]', params: { id: current.doc.id } })}
+        >
           <Row>
-            <Ionicons name="book" size={22} color={colors.primary} />
+            <Ionicons name="book" size={22} color={theme.palette.primary} />
             <H2 style={{ flex: 1 }} numberOfLines={2}>
               {current.doc.title}
             </H2>
           </Row>
           <Muted>{t('page', { p: current.p.page + 1, n: current.p.pages })}</Muted>
-          <ProgressBar value={(current.p.page + 1) / Math.max(1, current.p.pages)} color={colors.primary} height={8} />
-          <Button label={t('continueReading')} onPress={() => router.push({ pathname: '/doc/[id]', params: { id: current.doc.id } })} />
+          <ProgressBar value={(current.p.page + 1) / Math.max(1, current.p.pages)} color={theme.palette.primary} height={8} />
+          <Button decorative label={t('continueReading')} />
         </Card>
       ) : (
         <Card>
           <EmptyState
-            icon={<Ionicons name="bookmarks-outline" size={36} color={colors.muted} />}
+            icon={<Ionicons name="bookmarks-outline" size={36} color={theme.palette.muted} />}
             title={t('noProgress')}
             text={t('noProgressText')}
             action={<Button label={t('openLibrary')} onPress={() => router.push('/library')} />}
@@ -107,7 +112,7 @@ export default function Home() {
           { n: bookmarks, l: t('bookmarksCount'), i: 'bookmark-outline' as const },
         ].map((x) => (
           <Card key={x.l} style={{ flex: 1, alignItems: 'center' }}>
-            <Ionicons name={x.i} size={20} color={colors.primary} />
+            <Ionicons name={x.i} size={20} color={theme.palette.primary} />
             <H2>{x.n}</H2>
             <Muted center>{x.l}</Muted>
           </Card>
@@ -152,5 +157,24 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  hero: { backgroundColor: colors.primary, borderRadius: 22, padding: 22, gap: 8 },
+  hero: {
+    backgroundColor: colors.primary,
+    borderRadius: 22,
+    padding: 22,
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.4)',
+    borderBottomWidth: 3,
+    borderBottomColor: '#0B1224',
+    shadowColor: '#0B1224',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.28,
+    shadowRadius: 18,
+    elevation: 6,
+  },
+  heroSolid: {
+    borderTopColor: '#9AACC8',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
 });

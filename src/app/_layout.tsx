@@ -10,7 +10,6 @@ import { I18nProvider, useI18n } from '../lib/i18n';
 import { ThemeProvider, useTheme } from '../components/theme';
 import { MacProvider } from '../components/mac';
 import { appStore, BOOT_TIMEOUT_MS } from '../lib/store';
-import { colors } from '../theme';
 
 export function ErrorBoundary(props: { error: Error; retry: () => void | Promise<void> }) {
   return <RouteErrorBoundary {...props} />;
@@ -23,6 +22,7 @@ export function SuspenseFallback() {
 function StorageWarning() {
   const warning = appStore.useStorageWarning();
   const { t } = useI18n();
+  const theme = useTheme();
   if (!warning) return null;
   const message =
     warning === 'delete-failed'
@@ -35,13 +35,13 @@ function StorageWarning() {
             ? 'storageWriteFailed'
             : 'storageUnreadable';
   return (
-    <View style={{ backgroundColor: colors.noticeBg, paddingHorizontal: 16, paddingVertical: 12 }}>
-      <Text style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>{t(message)}</Text>
+    <View style={{ backgroundColor: theme.palette.noticeBg, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: theme.palette.noticeText }}>
+      <Text allowFontScaling maxFontSizeMultiplier={2} style={{ color: theme.palette.noticeText, fontSize: 15, lineHeight: 22 }}>{t(message)}</Text>
       {warning === 'write-failed' ? (
         <Text
           accessibilityRole="button"
           onPress={() => appStore.retrySave()}
-          style={{ color: colors.primary, fontWeight: '700', marginTop: 6, fontSize: 15 }}
+          style={{ color: theme.palette.noticeText, fontWeight: '700', marginTop: 6, fontSize: 15, minHeight: 44 }}
         >
           {t('retrySave')}
         </Text>

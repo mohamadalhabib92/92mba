@@ -5,6 +5,7 @@ import { useI18n } from '../lib/i18n';
 import { CATEGORY_LABELS, Doc, licenseBadgeLabel, paginate, readingMinutes } from '../lib/library';
 import type { Progress } from '../lib/store';
 import { colors } from '../theme';
+import { useTheme } from './theme';
 import { Badge, Card, H3, Muted, ProgressBar, Row } from './ui';
 
 const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -19,6 +20,7 @@ const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 
 export function DocCard({ doc, progress, onPress }: { doc: Doc; progress?: Progress; onPress: () => void }) {
   const { t, lang } = useI18n();
+  const theme = useTheme();
   const pages = paginate(doc).length;
   const pct = progress ? Math.round(((progress.page + 1) / Math.max(1, progress.pages)) * 100) : 0;
   const tone = doc.license.kind === 'placeholder' ? 'warn' : doc.license.kind === 'public-domain' ? 'ok' : 'info';
@@ -46,7 +48,7 @@ export function DocCard({ doc, progress, onPress }: { doc: Doc; progress?: Progr
           </Row>
           {progress ? (
             <View style={{ gap: 4, marginTop: 4 }}>
-              <ProgressBar value={pct / 100} color={pct >= 100 ? colors.success : colors.primary} />
+              <ProgressBar value={pct / 100} color={pct >= 100 ? theme.palette.success : theme.palette.primary} />
               <Muted>{pct >= 100 ? t('finished') : t('percent', { n: pct })}</Muted>
             </View>
           ) : null}

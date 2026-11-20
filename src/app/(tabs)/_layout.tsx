@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router/js-tabs';
 import React from 'react';
 import { useI18n } from '../../lib/i18n';
-import { colors } from '../../theme';
 import { useTheme } from '../../components/theme';
 import { useStage } from '../../components/mac';
 
@@ -21,8 +20,22 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: theme.palette.muted,
         tabBarPosition: wide ? 'left' : 'bottom',
         tabBarStyle: wide
-          ? { backgroundColor: theme.palette.surface, borderRightColor: theme.palette.border, borderRightWidth: 1, width: 240 }
-          : { backgroundColor: theme.palette.surface, borderTopColor: theme.palette.border },
+          ? {
+              backgroundColor: theme.glass.surface,
+              borderRightColor: theme.glass.highlight,
+              borderRightWidth: 1,
+              width: 240,
+              minHeight: 44,
+            }
+          : {
+              backgroundColor: theme.glass.surface,
+              borderTopColor: theme.glass.highlight,
+              borderTopWidth: 1,
+              borderBottomColor: theme.glass.shade,
+              borderBottomWidth: theme.glass.solid ? 0 : 2,
+              minHeight: 56,
+            },
+        tabBarItemStyle: { minHeight: 44 },
         tabBarLabelStyle: { fontWeight: '600' },
       }}
     >

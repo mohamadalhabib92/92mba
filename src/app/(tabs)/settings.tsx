@@ -12,7 +12,8 @@ import { PRIVACY_URL, SUPPORT_URL, supportEmail } from '../../lib/links';
 import { utf8ByteLength } from '../../lib/sha256';
 import { appStore } from '../../lib/store';
 import { LANGS } from '../../i18n/strings';
-import { colors, type ReaderTheme } from '../../theme';
+import { useTheme } from '../../components/theme';
+import { type ReaderTheme } from '../../theme';
 
 /** Télécharge ou partage la copie brute sans la placer dans l'arbre React. */
 async function deliverRawExport(raw: string): Promise<boolean> {
@@ -40,6 +41,7 @@ async function deliverRawExport(raw: string): Promise<boolean> {
 
 export default function Settings() {
   const { t, lang, setLang, dir } = useI18n();
+  const theme = useTheme();
   const s = appStore.useStore();
   const warning = appStore.useStorageWarning();
   const copyVerified = appStore.useCopyVerified();
@@ -113,7 +115,7 @@ export default function Settings() {
             <Chip key={th.k} label={th.l} active={s.readerTheme === th.k} onPress={() => appStore.set({ readerTheme: th.k })} />
           ))}
         </Row>
-        <ReadingControls color={colors.text} muted={colors.muted} />
+        <ReadingControls color={theme.palette.text} muted={theme.palette.muted} />
       </Card>
       <Card>
         <H3>{t('aboutContent')}</H3>
@@ -121,13 +123,13 @@ export default function Settings() {
         <Button
           variant="ghost"
           label={t('privacy')}
-          icon={<Ionicons name="shield-checkmark-outline" size={16} color={colors.primary} />}
+          icon={<Ionicons name="shield-checkmark-outline" size={16} color={theme.palette.primary} />}
           onPress={() => Linking.openURL(PRIVACY_URL).catch(() => undefined)}
         />
         <Button
           variant="ghost"
           label={t('support')}
-          icon={<Ionicons name="help-circle-outline" size={16} color={colors.primary} />}
+          icon={<Ionicons name="help-circle-outline" size={16} color={theme.palette.primary} />}
           onPress={() => Linking.openURL(supportEmail() ? `mailto:${supportEmail()}` : SUPPORT_URL).catch(() => undefined)}
         />
       </Card>

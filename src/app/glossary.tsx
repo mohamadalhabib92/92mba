@@ -28,7 +28,24 @@ export default function GlossaryScreen() {
         onChangeText={setQuery}
         placeholder={t('searchGlossary')}
         placeholderTextColor={theme.palette.muted}
-        style={{ minHeight: 48, borderWidth: 1, borderColor: theme.palette.border, borderRadius: 14, paddingHorizontal: 14, color: theme.palette.text, backgroundColor: theme.palette.surface, textAlign: dir === 'rtl' ? 'right' : 'left' }}
+        allowFontScaling
+        maxFontSizeMultiplier={2}
+        style={{
+          minHeight: 48,
+          borderTopWidth: 1,
+          borderBottomWidth: 2,
+          borderLeftWidth: 1,
+          borderRightWidth: 1,
+          borderTopColor: theme.glass.highlight,
+          borderBottomColor: theme.glass.shade,
+          borderLeftColor: theme.glass.hairline,
+          borderRightColor: theme.glass.hairline,
+          borderRadius: 14,
+          paddingHorizontal: 14,
+          color: theme.palette.text,
+          backgroundColor: theme.glass.surface,
+          textAlign: dir === 'rtl' ? 'right' : 'left',
+        }}
       />
       {rows.map((entry) => (
         <Card key={entry.id}>

@@ -39,9 +39,9 @@ export function ErrorBoundary({ error, retry }: { error: Error; retry: () => voi
           onPress={() => {
             void retry();
           }}
-          style={{ minHeight: 48, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}
+          style={{ minHeight: 48, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', borderTopWidth: 1, borderBottomWidth: 3, borderTopColor: '#9AACC8', borderBottomColor: '#0B1224' }}
         >
-          <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>{copy.bootRetry}</Text>
+          <Text allowFontScaling maxFontSizeMultiplier={2} style={{ color: colors.onPrimary, fontWeight: '700' }}>{copy.bootRetry}</Text>
         </Pressable>
       </View>
     </View>
