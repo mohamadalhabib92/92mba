@@ -8,14 +8,15 @@ import { modules } from '../learn/content/catalog';
 import { learnText } from '../learn/copy';
 import { pick } from '../learn/l10n';
 import type { Grade } from '../learn/srs';
-import { queuePreview, reviewIds } from '../learn/study';
+import { dailyReviewIds, highlightCardIds } from '../learn/highlights';
 import { useI18n } from '../lib/i18n';
 import { appStore } from '../lib/store';
 
 export default function ReviewScreen() {
   const { lang, dir } = useI18n();
   const study = appStore.useStore().study;
-  const ids = useMemo(() => queuePreview(study, reviewIds(modules, study, Date.now())).map((item) => item.id), [study]);
+  const ids = useMemo(() => dailyReviewIds(modules, study, Date.now()), [study]);
+  const fromHighlight = useMemo(() => highlightCardIds(study), [study]);
   const [shown, setShown] = useState(false);
   const t = (key: Parameters<typeof learnText>[1], vars?: Record<string, string | number>) => learnText(lang, key, vars);
   const cardId = ids[0];
@@ -40,6 +41,7 @@ export default function ReviewScreen() {
       ) : (
         <Card>
           <Muted>{ids.length}</Muted>
+          {cardId && fromHighlight.has(cardId) ? <Muted>{t('fromHighlight')}</Muted> : null}
           <H2>{front}</H2>
           {shown ? <Body>{back}</Body> : <Button label={t('show')} onPress={() => setShown(true)} />}
           {shown ? (

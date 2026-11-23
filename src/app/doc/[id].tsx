@@ -15,7 +15,7 @@ import { appStore, setProgress, toggleBookmark } from '../../lib/store';
 import { useReaderPage } from './useReaderPage';
 import { firstString, sanitizeSearchQuery } from '../../lib/textGuard';
 import { useTheme } from '../../components/theme';
-import { colors, readingColumnWidth, readingPadding, readerThemes, snapFontScale, snapLineHeight, ReaderTheme } from '../../theme';
+import { colors, highlightColors, readingColumnWidth, readingPadding, readerThemes, snapFontScale, snapLineHeight, ReaderTheme, type HighlightName } from '../../theme';
 import { frostBar } from '../../theme/glass';
 import { useMacArrows, useMacEscape, useMacFind, useStage } from '../../components/mac';
 
@@ -28,7 +28,8 @@ export default function Reader() {
   const doc = useMemo(() => findDoc(firstString(params.id) || undefined, s.userDocs), [params.id, s.userDocs]);
   const pages = useMemo(() => (doc ? paginate(doc) : []), [doc]);
   const [dragPage, setDragPage] = useState<number | null>(null);
-  const [panel, setPanel] = useState<'none' | 'info' | 'bookmarks' | 'find' | 'display'>('none');
+  const [panel, setPanel] = useState<'none' | 'info' | 'bookmarks' | 'find' | 'display' | 'highlight'>('none');
+  const [ink, setInk] = useState<HighlightName>('yellow');
   const [find, setFind] = useState(sanitizeSearchQuery(params.q));
   const scrollRef = useRef<ScrollViewInstance>(null);
   const storageReady = appStore.useStorageReady();
@@ -115,6 +116,28 @@ export default function Reader() {
   }
 
   const marks = s.bookmarks[doc.id] ?? [];
+  const passage = (pages[page] ?? []).join('\n\n').slice(0, 500).trim();
+  const markId = passage ? `${doc.id}:${page}:${passage.slice(0, 40)}` : '';
+  const saved = markId ? s.study.marks.find((mark) => mark.id === markId) : undefined;
+  const inkNow = saved?.color ?? ink;
+  const paint = (color: HighlightName) => {
+    setInk(color);
+    if (!passage || !markId) return;
+    keepMark({ id: markId, docId: doc.id, page, text: passage, createdAt: saved?.createdAt ?? Date.now(), color });
+  };
+  const makeCard = () => {
+    if (!passage || !markId) return;
+    if (!saved) keepMark({ id: markId, docId: doc.id, page, text: passage, createdAt: Date.now(), color: inkNow });
+    promoteMark(markId, learnText(lang, 'highlight'), passage, {
+      lang: doc.lang,
+      docId: doc.id,
+      author: doc.author,
+      date: doc.license.date || doc.year || 'à vérifier',
+      source: doc.title,
+      licence: doc.license.label,
+      status: doc.license.statusCode ?? doc.license.kind,
+    });
+  };
   const isMarked = marks.includes(page);
   const shown = dragPage ?? page;
   const pct = Math.round(((page + 1) / pages.length) * 100);
@@ -143,11 +166,10 @@ export default function Reader() {
         </View>
         {iconBtn(isMarked ? 'bookmark' : 'bookmark-outline', isMarked ? t('removeBookmark') : t('addBookmark'), () => toggleBookmark(doc.id, page), isMarked)}
         {iconBtn('color-wand-outline', learnText(lang, 'highlight'), () => {
-          const passage = (pages[page] ?? []).join('\n\n').slice(0, 500).trim();
           if (!passage) return;
-          const markId = `${doc.id}:${page}:${passage.slice(0, 40)}`;
-          keepMark({ id: markId, docId: doc.id, page, text: passage, createdAt: Date.now() });
-        })}
+          keepMark({ id: markId, docId: doc.id, page, text: passage, createdAt: Date.now(), color: saved?.color ?? ink });
+          setPanel(panel === 'highlight' ? 'none' : 'highlight');
+        }, panel === 'highlight')}
         {iconBtn('information-circle-outline', t('info'), () => setPanel(panel === 'info' ? 'none' : 'info'), panel === 'info')}
       </View>
       <View style={[styles.tools, { backgroundColor: bar, borderBottomColor: edgeBottom }]}>
@@ -224,6 +246,41 @@ export default function Reader() {
               >
                 <Text style={{ color: theme.link, fontWeight: '700' }}>{learnText(lang, 'toCard')}</Text>
               </Pressable>
+            </View>
+          ) : panel === 'highlight' ? (
+            <View style={{ gap: 8 }}>
+              <Text style={{ color: theme.text, fontWeight: '700' }}>{learnText(lang, 'highlighted')}</Text>
+              <Text style={{ color: theme.muted }}>{learnText(lang, 'oneNext')}</Text>
+              {passage ? (
+                <Text numberOfLines={systemScale >= 1.3 ? undefined : 3} style={{ color: highlightColors[inkNow].text, backgroundColor: highlightColors[inkNow].bg, borderRadius: 8, padding: 8 }}>
+                  {passage}
+                </Text>
+              ) : null}
+              <Row style={{ flexWrap: 'wrap' }}>
+                {(Object.keys(highlightColors) as HighlightName[]).map((name) => (
+                  <Pressable
+                    key={name}
+                    accessibilityRole="button"
+                    accessibilityLabel={learnText(lang, name === 'yellow' ? 'colorYellow' : name === 'green' ? 'colorGreen' : name === 'blue' ? 'colorBlue' : 'colorRose')}
+                    accessibilityState={{ selected: inkNow === name }}
+                    onPress={() => paint(name)}
+                    style={{
+                      minWidth: 44,
+                      minHeight: 44,
+                      borderRadius: 22,
+                      backgroundColor: highlightColors[name].bg,
+                      borderWidth: inkNow === name ? 3 : 1,
+                      borderColor: theme.text,
+                    }}
+                  />
+                ))}
+              </Row>
+              {saved?.cardId ? (
+                <Button label={learnText(lang, 'cardReady')} onPress={() => router.push('/review')} />
+              ) : (
+                <Button label={learnText(lang, 'toCard')} onPress={makeCard} />
+              )}
+              <Button variant="ghost" label={learnText(lang, 'highlights')} onPress={() => router.push('/highlights')} />
             </View>
           ) : panel === 'bookmarks' ? (
             marks.length ? (

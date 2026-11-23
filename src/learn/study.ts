@@ -1,7 +1,15 @@
 import type { Lang } from '../i18n/strings';
+import type { HighlightName } from '../theme';
 import type { CardMemory, Grade, SchedulerId } from './srs';
 import { blankMemory, dueAt, isDue, reviewCard } from './srs';
 import type { Capstone, StudyModule, StudyPath } from './types';
+
+const HIGHLIGHT_COLORS: HighlightName[] = ['yellow', 'green', 'blue', 'rose'];
+
+/** Couleur absente ou inconnue : jaune, le surlignage historique. */
+export function snapHighlightColor(value: unknown): HighlightName {
+  return HIGHLIGHT_COLORS.includes(value as HighlightName) ? (value as HighlightName) : 'yellow';
+}
 
 export type Appearance = 'light' | 'dark' | 'system';
 export type CelebrationLevel = 'full' | 'reduced' | 'off';
@@ -17,6 +25,8 @@ export type ReaderMark = {
   text: string;
   createdAt: number;
   cardId?: string;
+  /** Absent sur les passages déjà enregistrés : traité comme jaune. */
+  color?: HighlightName;
 };
 
 export type UserCard = {
@@ -220,6 +230,7 @@ function sanitizeMarks(raw: unknown): ReaderMark[] {
         text: row.text.slice(0, 600),
         createdAt: finite(row.createdAt, 0),
         cardId: typeof row.cardId === 'string' ? row.cardId : undefined,
+        color: snapHighlightColor(row.color),
       },
     ];
   });
@@ -431,10 +442,13 @@ export function recordCapstone(study: StudyState, now: number): StudyState {
 }
 
 export function addMark(study: StudyState, mark: ReaderMark): StudyState {
-  if (study.marks.some((item) => item.id === mark.id || (item.docId === mark.docId && item.page === mark.page && item.text === mark.text))) {
-    return study;
+  const color = snapHighlightColor(mark.color);
+  const existing = study.marks.find((item) => item.id === mark.id || (item.docId === mark.docId && item.page === mark.page && item.text === mark.text));
+  if (existing) {
+    if (existing.color === color) return study;
+    return { ...study, marks: study.marks.map((item) => (item.id === existing.id ? { ...item, color } : item)) };
   }
-  return { ...study, marks: [mark, ...study.marks] };
+  return { ...study, marks: [{ ...mark, color }, ...study.marks] };
 }
 
 export function cardFromMark(study: StudyState, markId: string, now: number, meta: Omit<UserCard, 'id' | 'front' | 'back' | 'moduleId'> & { back: string; front: string }): StudyState {

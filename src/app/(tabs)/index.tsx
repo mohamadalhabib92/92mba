@@ -62,6 +62,7 @@ export default function Home() {
         {s.study.pathStartedAt ? <Muted>{tLearn('dayOf', { d: pathDayIndex(s.study.pathStartedAt, Date.now(), PATH_92.days), n: PATH_92.days })}</Muted> : null}
         {reminderDue(s.study, Date.now()) ? <Body>{tLearn('reminder')}</Body> : null}
         <Button label={due ? tLearn('dueSome', { n: Math.min(due, REVIEW_SESSION) }) : tLearn('reviewNow')} onPress={() => router.push('/review')} />
+        <Button variant="ghost" label={tLearn('highlights')} onPress={() => router.push('/highlights')} />
         {openLesson ? <Button variant="secondary" label={tLearn('continueLesson')} onPress={() => router.push({ pathname: '/lesson/[id]', params: { id: openLesson } })} /> : null}
         <Button variant="ghost" label={tLearn('browseModules')} onPress={() => router.push('/curriculum')} />
         <Button variant="ghost" label={tLearn('pathCta')} onPress={() => router.push('/path')} />
