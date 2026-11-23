@@ -1,0 +1,250 @@
+import { L } from '../l10n';
+import type { StudyModule } from '../types';
+import { card, check, example, idea, item, lesson, opt, studyCase } from './build';
+
+export type Mod = Omit<StudyModule, 'formulas' | 'readings'>;
+
+const rich = 'rich' as const;
+
+export const moduleBodies: Mod[] = [
+  {
+    id: 'strategy',
+    richness: rich,
+    title: L('Stratégie', 'Strategy', 'الاستراتيجية'),
+    promise: L('Choisir où jouer, et comment gagner.', 'Choose where to play, and how to win.', 'اختيار أين نلعب وكيف نربح.'),
+    libraryDocIds: ['strategie-fondamentaux'],
+    lessons: [
+      lesson('strategy-choice', 'strategy', 5, L('Un choix, pas un slogan', 'A choice, not a slogan', 'اختيار لا شعار'), [
+        idea(
+          'La stratégie refuse quelque chose',
+          'Strategy turns something down',
+          'الاستراتيجية ترفض شيئاً',
+          'Une stratégie dit où vous jouez, comment vous gagnez, et ce que vous ne ferez pas. Un slogan qui promet tout n’oriente personne le lundi matin.',
+          'A strategy says where you play, how you win, and what you will not do. A slogan that promises everything guides nobody on Monday morning.',
+          'الاستراتيجية تقول أين تلعب وكيف تربح وما لن تفعله. شعار يعد بكل شيء لا يوجّه أحداً صباح الاثنين.',
+        ),
+        example(
+          'Deux horlogers, un seul marché',
+          'Two watchmakers, one market',
+          'ساعاتيان وسوق واحدة',
+          'L’un vend peu de pièces, très suivies, à un prix élevé. L’autre vend un volume simple en grande surface. Les deux peuvent gagner. Aucun des deux ne peut tenir les deux promesses avec la même équipe.',
+          'One sells few, closely followed pieces at a high price. The other sells a simple volume in supermarkets. Both can win. Neither can keep both promises with the same team.',
+          'أحدهما يبيع قطعاً قليلة ومتابَعة بسعر مرتفع. الآخر يبيع حجماً بسيطاً في المتاجر. كلاهما قد يربح. لا يستطيع أحدهما الوفاء بالوعدين بالفريق نفسه.',
+        ),
+        check(
+          'Que fait une stratégie utile ?',
+          'What does a useful strategy do?',
+          'ماذا تفعل استراتيجية مفيدة؟',
+          [
+            opt('Elle liste tous les clients possibles.', 'It lists every possible customer.', 'تسرد كل العملاء الممكنين.'),
+            opt('Elle choisit un terrain et un renoncement.', 'It chooses a field and a refusal.', 'تختار ميداناً وتنازلاً.'),
+            opt('Elle remplace le budget.', 'It replaces the budget.', 'تحل محل الميزانية.'),
+          ],
+          1,
+          L('Sans renoncement, l’équipe ne sait pas quoi arrêter.', 'Without a refusal, the team does not know what to stop.', 'من دون تنازل لا يعرف الفريق ماذا يوقف.'),
+        ),
+      ]),
+      lesson('strategy-swot', 'strategy', 4, L('SWOT en une page', 'SWOT on one page', 'SWOT في صفحة'), [
+        idea(
+          'Diagnostic, puis choix',
+          'Diagnosis, then a choice',
+          'تشخيص ثم اختيار',
+          'Forces et faiblesses parlent de vous. Opportunités et menaces parlent du dehors. La page ne devient une stratégie que lorsque vous en tirez un choix.',
+          'Strengths and weaknesses are about you. Opportunities and threats are about the outside. The page becomes a strategy only when you draw a choice from it.',
+          'القوة والضعف عنكم. الفرص والتهديدات عن الخارج. لا تصير الصفحة استراتيجية إلا حين تستخرجون منها اختياراً.',
+        ),
+        example(
+          'Atelier du Jorat',
+          'Jorat workshop',
+          'مشغل جورا',
+          'Force : un savoir-faire de réglage. Faiblesse : un seul client. Opportunité : des marques qui relocalisent. Menace : un composant asiatique deux fois moins cher. Le choix possible : vendre le réglage, pas la pièce brute.',
+          'Strength: adjustment skill. Weakness: a single client. Opportunity: brands relocating. Threat: an Asian part at half the price. A possible choice: sell the adjustment, not the raw part.',
+          'قوة: مهارة الضبط. ضعف: عميل واحد. فرصة: علامات تعيد التوطين. تهديد: قطعة آسيوية بنصف السعر. اختيار ممكن: بيع الضبط لا القطعة الخام.',
+        ),
+        check(
+          'À quoi sert le SWOT ?',
+          'What is SWOT for?',
+          'فيم يفيد SWOT؟',
+          [
+            opt('À afficher quatre listes au mur.', 'To pin four lists on the wall.', 'لتعليق أربع قوائم.'),
+            opt('À préparer un choix.', 'To prepare a choice.', 'لتحضير اختيار.'),
+            opt('À calculer la marge.', 'To compute the margin.', 'لحساب الهامش.'),
+          ],
+          1,
+          L('Les listes ne servent que si un choix en sort.', 'The lists only help if a choice comes out of them.', 'القوائم لا تنفع إلا إذا خرج منها اختيار.'),
+        ),
+      ]),
+      lesson('strategy-do', 'strategy', 6, L('Exécuter le choix', 'Carry the choice out', 'تنفيذ الاختيار'), [
+        idea(
+          'Trois preuves dans le mois',
+          'Three proofs this month',
+          'ثلاثة أدلة هذا الشهر',
+          'Une stratégie vivante se voit dans le calendrier : quels clients vous refusez, quels indicateurs vous regardez, quelle dépense vous arrêtez.',
+          'A living strategy shows up in the calendar: which clients you decline, which measures you watch, which spend you stop.',
+          'الاستراتيجية الحية تظهر في التقويم: أي عملاء ترفضون، وأي مؤشرات تراقبون، وأي إنفاق توقفون.',
+        ),
+        example(
+          'Le lundi de Léa',
+          'Léa’s Monday',
+          'اثنين ليا',
+          'Léa dirige une Sàrl de 12 personnes à Yverdon. Elle retire du site la gamme d’entrée, et elle bloque deux rendez-vous avec des marques qui paient le réglage. C’est plus parlant qu’une nouvelle phrase de vision.',
+          'Léa runs a 12-person Sàrl in Yverdon. She removes the entry range from the site and books two meetings with brands that pay for adjustment. That says more than a new vision sentence.',
+          'تدير ليا شركة من 12 شخصاً في إيفردون. تسحب الفئة الرخيصة من الموقع وتحجز اجتماعين مع علامات تدفع مقابل الضبط. هذا أبلغ من جملة رؤية جديدة.',
+        ),
+        check(
+          'Quel signe montre que le choix est réel ?',
+          'Which sign shows the choice is real?',
+          'أي علامة تُظهر أن الاختيار حقيقي؟',
+          [
+            opt('Une affiche dans l’entrée.', 'A poster in the lobby.', 'ملصق في المدخل.'),
+            opt('Un refus et un agenda qui changent.', 'A refusal and a calendar that change.', 'رفض وتقويم يتغيران.'),
+            opt('Un logo plus grand.', 'A larger logo.', 'شعار أكبر.'),
+          ],
+          1,
+          L('L’exécution se voit dans ce que l’on arrête et ce que l’on cale.', 'Execution shows in what you stop and what you schedule.', 'التنفيذ يظهر في ما توقفونه وما تثبتونه في الجدول.'),
+        ),
+      ]),
+    ],
+    cards: [
+      card('c-strategy-1', 'strategy', L('Stratégie', 'Strategy', 'الاستراتيجية'), L('Où jouer, comment gagner, quoi refuser.', 'Where to play, how to win, what to refuse.', 'أين نلعب، كيف نربح، ماذا نرفض.')),
+      card('c-strategy-2', 'strategy', L('SWOT', 'SWOT', 'SWOT'), L('Diagnostic interne et externe. Le choix vient après.', 'Internal and external diagnosis. The choice comes after.', 'تشخيص داخلي وخارجي. الاختيار يأتي بعده.')),
+      card('c-strategy-3', 'strategy', L('Avantage', 'Advantage', 'الميزة'), L('Une préférence client que le rival ne copie pas tout de suite.', 'A customer preference a rival does not copy at once.', 'تفضيل لدى العميل لا ينسخه المنافس فوراً.')),
+      card('c-strategy-4', 'strategy', L('Exécution', 'Execution', 'التنفيذ'), L('Refus, indicateur, dépense arrêtée.', 'A refusal, a measure, a stopped expense.', 'رفض، مؤشر، إنفاق موقوف.')),
+      card('c-strategy-5', 'strategy', L('Vision', 'Vision', 'الرؤية'), L('Une direction. Elle ne remplace pas le choix de terrain.', 'A direction. It does not replace the choice of field.', 'اتجاه. لا يحل محل اختيار الميدان.')),
+      card('c-strategy-6', 'strategy', L('Cohérence', 'Fit', 'الانسجام'), L('Offre, prix et équipe racontent la même promesse.', 'Offer, price and team tell the same promise.', 'العرض والسعر والفريق يروون الوعد نفسه.')),
+    ],
+    quiz: [
+      item('q-strategy-1', 'strategy', L('Une PME veut « être la meilleure ». Que manque-t-il ?', 'A small firm wants to “be the best”. What is missing?', 'شركة صغيرة تريد أن تكون «الأفضل». ماذا ينقص؟'), [opt('Un renoncement clair.', 'A clear refusal.', 'تنازل واضح.'), opt('Un plus grand logo.', 'A larger logo.', 'شعار أكبر.'), opt('Plus de couleurs.', 'More colours.', 'ألوان أكثر.')], 0, L('Sans terrain ni refus, « meilleure » ne guide pas.', 'Without a field or a refusal, “best” does not guide.', 'من دون ميدان أو تنازل، «الأفضل» لا يوجّه.')),
+      item('q-strategy-2', 'strategy', L('Le SWOT sert d’abord à…', 'SWOT is first used to…', 'يُستخدم SWOT أولاً من أجل…'), [opt('Préparer un choix.', 'Prepare a choice.', 'تحضير اختيار.'), opt('Remplacer le bilan.', 'Replace the balance sheet.', 'استبدال الميزانية.'), opt('Fixer le taux de TVA.', 'Set the VAT rate.', 'تحديد معدل الضريبة.')], 0, L('C’est un diagnostic, pas un état financier.', 'It is a diagnosis, not a financial statement.', 'هو تشخيص لا بيان مالي.')),
+      item('q-strategy-3', 'strategy', L('Quel geste prouve l’exécution ?', 'Which act proves execution?', 'أي فعل يثبت التنفيذ؟'), [opt('Refuser un client hors cible.', 'Declining an off-target client.', 'رفض عميل خارج الهدف.'), opt('Réécrire la vision.', 'Rewriting the vision.', 'إعادة كتابة الرؤية.'), opt('Changer la police.', 'Changing the font.', 'تغيير الخط.')], 0, L('Le refus montre que le choix tient.', 'The refusal shows the choice holds.', 'الرفض يُظهر أن الاختيار يصمد.')),
+      item('q-strategy-4', 'strategy', L('Deux promesses contraires avec la même équipe…', 'Two opposite promises with the same team…', 'وعدان متعارضان مع الفريق نفسه…'), [opt('Diluent l’avantage.', 'Dilute the advantage.', 'يخففان الميزة.'), opt('Doublent la marge.', 'Double the margin.', 'يضاعفان الهامش.'), opt('Suppriment les coûts fixes.', 'Remove fixed costs.', 'يلغيان التكاليف الثابتة.')], 0, L('L’équipe ne peut pas exceller dans deux métiers opposés à la fois.', 'The team cannot excel at two opposite crafts at once.', 'لا يستطيع الفريق الإجادة في حرفتين متعارضتين معاً.')),
+      item('q-strategy-5', 'strategy', L('La fiche de la bibliothèque « Stratégie : les fondamentaux » est…', 'The library note “Strategy fundamentals” is…', 'بطاقة المكتبة «أساسيات الاستراتيجية» هي…'), [opt('Un texte original de l’équipe, à valider.', 'Original team writing, still to be reviewed.', 'نص أصلي من الفريق، بانتظار المراجعة.'), opt('Un résumé d’un manuel récent.', 'A summary of a recent textbook.', 'ملخص لكتاب حديث.'), opt('Une loi suisse.', 'A Swiss statute.', 'قانون سويسري.')], 0, L('Le document intégré est signé Équipe 92\'MBA, statut à valider.', 'The built-in document is signed by the 92\'MBA team, status still to be reviewed.', 'الوثيقة المدمجة بتوقيع فريق 92\'MBA، والحالة بانتظار المراجعة.')),
+    ],
+    cases: [
+      studyCase(
+        'case-strategy',
+        'strategy',
+        L('Horlogerie du Jorat', 'Jorat watches', 'ساعات جورا'),
+        L('Société fictive. Douze personnes, Sàrl, Vaud. Un grand client représente 70 % du chiffre. Une enseigne propose un volume trois fois plus grand, à un prix qui efface la marge de réglage.', 'Fictional firm. Twelve people, Sàrl, Vaud. One client is 70% of revenue. A retailer offers three times the volume at a price that erases the adjustment margin.', 'شركة خيالية. اثنا عشر شخصاً، ذات مسؤولية محدودة، فو. عميل واحد يساوي 70٪ من الرقم. متجر يعرض ثلاثة أضعاف الحجم بسعر يمحو هامش الضبط.'),
+        L('Que faites-vous en premier ?', 'What do you do first?', 'ماذا تفعلون أولاً؟'),
+        [opt('Accepter pour le volume.', 'Accept for the volume.', 'القبول من أجل الحجم.'), opt('Nommer le renoncement avant de répondre.', 'Name the refusal before answering.', 'تسمية التنازل قبل الرد.'), opt('Baisser tous les prix de 30 %.', 'Cut every price by 30%.', 'خفض كل الأسعار 30٪.')],
+        1,
+        L('Le volume qui détruit la marge de réglage est un autre métier. Le choix se dit avant le devis.', 'Volume that destroys the adjustment margin is another business. The choice is said before the quote.', 'الحجم الذي يهدم هامش الضبط مهنة أخرى. يُقال الاختيار قبل عرض السعر.'),
+      ),
+    ],
+  },
+  {
+    id: 'financial-accounting',
+    richness: rich,
+    title: L('Comptabilité financière', 'Financial accounting', 'المحاسبة المالية'),
+    promise: L('Lire ce que l’entreprise possède, doit, et a gagné.', 'Read what the firm owns, owes, and earned.', 'قراءة ما تملكه المنشأة وما عليها وما ربحته.'),
+    libraryDocIds: ['lire-un-bilan'],
+    lessons: [
+      lesson('fa-balance', 'financial-accounting', 5, L('L’équation du bilan', 'The balance-sheet equation', 'معادلة الميزانية'), [
+        idea(
+          'Une photo équilibrée',
+          'A balanced snapshot',
+          'صورة متوازنة',
+          'Actifs = dettes + capitaux propres. Si le total bouge d’un côté, l’autre côté bouge du même montant. Ce n’est pas encore le bénéfice de l’année.',
+          'Assets = liabilities + equity. If one side moves, the other side moves by the same amount. This is not yet the year’s profit.',
+          'الأصول = الديون + حقوق الملكية. إذا تحرك جانب تحرك الآخر بالمبلغ نفسه. هذا ليس بعد ربح السنة.',
+        ),
+        example(
+          'Café des Berges',
+          'Berges café',
+          'مقهى الضفاف',
+          'Le café fictif a une machine à 20 000, une caisse de 5 000, un emprunt de 15 000. Les capitaux propres sont 10 000. 25 000 = 15 000 + 10 000.',
+          'The fictional café has a machine worth 20,000, cash of 5,000, a loan of 15,000. Equity is 10,000. 25,000 = 15,000 + 10,000.',
+          'المقهى الخيالي لديه آلة بـ 20٬000 وصندوق 5٬000 وقرض 15٬000. حقوق الملكية 10٬000. 25٬000 = 15٬000 + 10٬000.',
+        ),
+        check(
+          'Le bilan est…',
+          'The balance sheet is…',
+          'الميزانية هي…',
+          [opt('Le film de l’année.', 'The film of the year.', 'فيلم السنة.'), opt('Une photo à une date.', 'A snapshot on one date.', 'صورة في تاريخ.'), opt('La liste des clients.', 'The client list.', 'قائمة العملاء.')],
+          1,
+          L('Le compte de résultat raconte la période. Le bilan fige une date.', 'The income statement tells the period. The balance sheet freezes a date.', 'قائمة الدخل تحكي الفترة. الميزانية تثبّت تاريخاً.'),
+        ),
+      ]),
+      lesson('fa-income', 'financial-accounting', 5, L('Trois lignes de résultat', 'Three lines of profit', 'ثلاثة أسطر للنتيجة'), [
+        idea(
+          'Produits, charges, résultat',
+          'Income, expenses, profit',
+          'إيرادات وأعباء ونتيجة',
+          'Le résultat de la période est les produits moins les charges de cette période. Un encaissement n’est pas toujours un produit, et un achat de machine n’est pas toujours une charge immédiate.',
+          'Period profit is income minus the expenses of that period. A cash receipt is not always income, and buying a machine is not always an immediate expense.',
+          'نتيجة الفترة هي الإيرادات ناقص أعباء تلك الفترة. القبض ليس دائماً إيراداً، وشراء آلة ليس دائماً عبئاً فورياً.',
+        ),
+        example(
+          'Le café encaisse un abonnement',
+          'The café collects a subscription',
+          'المقهى يقبض اشتراكاً',
+          'Un client paie 360 pour l’année, le 1er décembre. En décembre, un douzième est un produit. Le reste est une dette : le café doit encore le service.',
+          'A customer pays 360 for the year on 1 December. In December, one twelfth is income. The rest is a liability: the café still owes the service.',
+          'يدفع عميل 360 للسنة في 1 ديسمبر. في ديسمبر، جزء من اثني عشر إيراداً. الباقي التزام: المقهى ما زال مديناً بالخدمة.',
+        ),
+        check(
+          'Acheter une machine comptant…',
+          'Buying a machine for cash…',
+          'شراء آلة نقداً…',
+          [opt('Échange un actif contre un autre.', 'Swaps one asset for another.', 'يبادل أصلاً بآخر.'), opt('Est toujours une perte.', 'Is always a loss.', 'خسارة دائماً.'), opt('Augmente le résultat tout de suite.', 'Raises profit at once.', 'يرفع النتيجة فوراً.')],
+          0,
+          L('La caisse baisse, la machine monte. Le résultat ne bouge pas à l’achat.', 'Cash falls, the machine rises. Profit does not move at purchase.', 'الصندوق ينقص والآلة تزيد. النتيجة لا تتحرك عند الشراء.'),
+        ),
+      ]),
+      lesson('fa-ratios', 'financial-accounting', 6, L('Trois ratios de lecture', 'Three reading ratios', 'ثلاث نسب للقراءة'), [
+        idea(
+          'Lire, pas juger seul',
+          'Read, do not judge alone',
+          'اقرأ ولا تحكم وحدك',
+          'Liquidité générale : actifs courants / passifs courants. Endettement : dettes / actifs. Marge : résultat / produits. Un ratio sans le métier à côté est un chiffre orphelin.',
+          'Current ratio: current assets / current liabilities. Debt ratio: liabilities / assets. Margin: profit / income. A ratio without the trade beside it is an orphan number.',
+          'التداول: أصول متداولة / خصوم متداولة. المديونية: ديون / أصول. الهامش: نتيجة / إيرادات. النسبة من دون المهنة رقم يتيم.',
+        ),
+        example(
+          'Deux cafés, même marge',
+          'Two cafés, same margin',
+          'مقهىان وهامش واحد',
+          'Les deux affichent 8 % de marge. L’un doit rembourser un emprunt dans six mois et sa liquidité est 0,6. L’autre a 2,1. La marge ne raconte pas la caisse.',
+          'Both show an 8% margin. One must repay a loan in six months and its current ratio is 0.6. The other is at 2.1. The margin does not tell the cash story.',
+          'كلاهما يظهر هامش 8٪. أحدهما يسدد قرضاً خلال ستة أشهر ونسبة تداوله 0,6. الآخر عند 2,1. الهامش لا يروي قصة الصندوق.',
+        ),
+        check(
+          'Une liquidité de 0,6 signifie surtout…',
+          'A current ratio of 0.6 mainly means…',
+          'نسبة تداول 0,6 تعني خصوصاً…',
+          [opt('Les dettes à court terme dépassent les actifs courants.', 'Short-term debts exceed current assets.', 'الديون القصيرة تتجاوز الأصول المتداولة.'), opt('L’entreprise est en faillite.', 'The firm is bankrupt.', 'المنشأة مفلسة.'), opt('La marge est négative.', 'The margin is negative.', 'الهامش سالب.')],
+          0,
+          L('C’est un signal de tension, pas un jugement juridique.', 'It is a sign of strain, not a legal verdict.', 'إشارة ضغط لا حكم قانوني.'),
+        ),
+      ]),
+    ],
+    cards: [
+      card('c-fa-1', 'financial-accounting', L('Équation', 'Equation', 'المعادلة'), L('Actifs = dettes + capitaux propres.', 'Assets = liabilities + equity.', 'الأصول = الديون + حقوق الملكية.')),
+      card('c-fa-2', 'financial-accounting', L('Bilan', 'Balance sheet', 'الميزانية'), L('Photo à une date.', 'A snapshot on one date.', 'صورة في تاريخ.')),
+      card('c-fa-3', 'financial-accounting', L('Résultat', 'Profit', 'النتيجة'), L('Produits de la période moins charges de la période.', 'Period income minus period expenses.', 'إيرادات الفترة ناقص أعباء الفترة.')),
+      card('c-fa-4', 'financial-accounting', L('Produit constaté d’avance', 'Deferred income', 'إيراد مؤجل'), L('Encaissé, pas encore gagné : c’est une dette.', 'Collected, not yet earned: it is a liability.', 'مقبوض ولم يُكتسب بعد: هو التزام.')),
+      card('c-fa-5', 'financial-accounting', L('Liquidité générale', 'Current ratio', 'نسبة التداول'), L('Actifs courants / passifs courants.', 'Current assets / current liabilities.', 'أصول متداولة / خصوم متداولة.')),
+      card('c-fa-6', 'financial-accounting', L('Machine au comptant', 'Cash machine purchase', 'آلة نقداً'), L('Actif contre actif. Le résultat ne bouge pas à l’achat.', 'Asset for asset. Profit does not move at purchase.', 'أصل مقابل أصل. النتيجة لا تتحرك عند الشراء.')),
+    ],
+    quiz: [
+      item('q-fa-1', 'financial-accounting', L('Actifs 80, dettes 50. Capitaux propres ?', 'Assets 80, liabilities 50. Equity?', 'أصول 80، ديون 50. حقوق الملكية؟'), [opt('30', '30', '30'), opt('130', '130', '130'), opt('50', '50', '50')], 0, L('80 = 50 + 30.', '80 = 50 + 30.', '80 = 50 + 30.')),
+      item('q-fa-2', 'financial-accounting', L('Un abonnement encaissé d’avance est…', 'A subscription collected in advance is…', 'اشتراك مقبوض مقدماً هو…'), [opt('Une dette tant que le service n’est pas rendu.', 'A liability until the service is delivered.', 'التزام حتى تُؤدى الخدمة.'), opt('Un bénéfice immédiat.', 'Immediate profit.', 'ربح فوري.'), opt('Un actif invisible.', 'An invisible asset.', 'أصل خفي.')], 0, L('Vous devez encore la prestation.', 'You still owe the service.', 'ما زلتم مدينين بالخدمة.')),
+      item('q-fa-3', 'financial-accounting', L('Le ratio de liquidité compare…', 'The current ratio compares…', 'تقارن نسبة التداول…'), [opt('Court terme à court terme.', 'Short term with short term.', 'القصير بالقصير.'), opt('Le logo et le prix.', 'The logo and the price.', 'الشعار والسعر.'), opt('Le salaire et la TVA.', 'Salary and VAT.', 'الراتب والضريبة.')], 0, L('Actifs courants sur passifs courants.', 'Current assets over current liabilities.', 'الأصول المتداولة على الخصوم المتداولة.')),
+      item('q-fa-4', 'financial-accounting', L('Deux marges égales impliquent…', 'Two equal margins imply…', 'هامشان متساويان يعنيان…'), [opt('Rien sur la caisse à eux seuls.', 'Nothing about cash on their own.', 'لا شيء عن الصندوق وحدهما.'), opt('La même trésorerie.', 'The same cash.', 'النقد نفسه.'), opt('Le même endettement.', 'The same debt.', 'المديونية نفسها.')], 0, L('La marge ne dit pas quand l’argent rentre.', 'The margin does not say when cash arrives.', 'الهامش لا يقول متى يصل المال.')),
+      item('q-fa-5', 'financial-accounting', L('Cette leçon est…', 'This lesson is…', 'هذا الدرس…'), [opt('Un texte original, pas un extrait de manuel.', 'Original writing, not a textbook extract.', 'نص أصلي لا مقتطف من كتاب.'), opt('Une norme IFRS officielle.', 'An official IFRS standard.', 'معيار IFRS رسمي.'), opt('Un conseil fiscal.', 'Tax advice.', 'نصيحة ضريبية.')], 0, L('Ce n’est ni une norme ni un conseil. C’est une lecture pédagogique.', 'It is neither a standard nor advice. It is a teaching reading.', 'ليس معياراً ولا نصيحة. هو قراءة تعليمية.')),
+    ],
+    cases: [
+      studyCase(
+        'case-fa',
+        'financial-accounting',
+        L('Le four du boulanger', 'The baker’s oven', 'فرن الخباز'),
+        L('Fictif. Une boulangerie lausannoise achète un four à 24 000, payé comptant. Le patron veut « passer le four en perte » pour baisser le bénéfice affiché.', 'Fictional. A Lausanne bakery buys an oven for 24,000, paid in cash. The owner wants to “book the oven as a loss” to lower reported profit.', 'خيالي. مخبز في لوزان يشتري فرناً بـ 24٬000 نقداً. يريد المالك تسجيل الفرن خسارة لخفض الربح الظاهر.'),
+        L('Que dites-vous ?', 'What do you say?', 'ماذا تقول؟'),
+        [opt('La caisse baisse, le four entre à l’actif. Le résultat ne baisse pas de 24 000.', 'Cash falls, the oven enters as an asset. Profit does not fall by 24,000.', 'الصندوق ينقص والفرن يدخل أصلاً. النتيجة لا تنقص 24٬000.'), opt('Oui, tout achat est une charge.', 'Yes, every purchase is an expense.', 'نعم، كل شراء عبء.'), opt('On augmente le capital de 24 000.', 'Equity rises by 24,000.', 'نزيد رأس المال 24٬000.')],
+        0,
+        L('On échange un actif contre un autre. L’usure du four se lira plus tard, pas le jour de l’achat.', 'You swap one asset for another. Wear of the oven is read later, not on purchase day.', 'تبادلون أصلاً بآخر. اهتلاك الفرن يُقرأ لاحقاً لا يوم الشراء.'),
+      ),
+    ],
+  },
+];

@@ -22,6 +22,9 @@ export function sanitizeSearchQuery(raw: unknown): string {
   return q;
 }
 
+/** Recherches montrées dans l'écran. Ce plafond ne doit pas couper le JSON stocké. */
+export const SEARCH_HISTORY_DISPLAY_CAP = 12;
+
 export function cleanHistory(list: unknown): string[] {
   if (!Array.isArray(list)) return [];
   const out: string[] = [];
@@ -33,7 +36,7 @@ export function cleanHistory(list: unknown): string[] {
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(q);
-    if (out.length >= 12) break;
+    if (out.length >= SEARCH_HISTORY_DISPLAY_CAP) break;
   }
   return out;
 }

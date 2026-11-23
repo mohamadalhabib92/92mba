@@ -9,6 +9,7 @@ export type LoadedFonts = {
   serif?: string;
   arabic?: string;
   arabicBold?: string;
+  dyslexia?: string;
 };
 
 const FontContext = createContext<LoadedFonts>({});
@@ -24,6 +25,7 @@ export function FontProvider({ children }: { children: React.ReactNode }) {
     [fontNames.serif]: require('../../assets/fonts/SourceSerif4-Regular.ttf'),
     [fontNames.arabic]: require('../../assets/fonts/NotoNaskhArabic-Regular.ttf'),
     [fontNames.arabicBold]: require('../../assets/fonts/NotoNaskhArabic-Bold.ttf'),
+    [fontNames.dyslexia]: require('../../assets/fonts/AtkinsonHyperlegible-Regular.ttf'),
   });
   const value: LoadedFonts = loaded
     ? {
@@ -32,6 +34,7 @@ export function FontProvider({ children }: { children: React.ReactNode }) {
         serif: fontNames.serif,
         arabic: fontNames.arabic,
         arabicBold: fontNames.arabicBold,
+        dyslexia: fontNames.dyslexia,
       }
     : {};
   return <FontContext.Provider value={value}>{children}</FontContext.Provider>;

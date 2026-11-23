@@ -139,4 +139,6 @@ export const fontNames = {
   serif: 'SourceSerif4',
   arabic: 'NotoNaskhArabic',
   arabicBold: 'NotoNaskhArabicBold',
+  /** Atkinson Hyperlegible, SIL OFL, Braille Institute. Latin seulement. */
+  dyslexia: 'AtkinsonHyperlegible',
 } as const;

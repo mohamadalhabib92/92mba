@@ -1,7 +1,7 @@
 # 92'MBA — Bibliothèque business hors ligne
 
-Application Expo (React Native + expo-router, TypeScript) qui fonctionne sur **iOS, Android et Web (PWA installable)**.
-Reconstruite à partir de la spécification Vibecode « 92MBA ».
+Application Expo (React Native + expo-router, TypeScript) pour **iOS, Android et le Web (PWA)**.
+La bibliothèque et la liseuse restent le socle. Un cursus MBA (micro-leçons, cartes, cas, révision espacée) s’y ajoute sans effacer la progression déjà enregistrée. Ce n’est pas un diplôme.
 
 ## Fonctionnalités
 

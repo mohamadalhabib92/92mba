@@ -1,17 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { DocCard } from '../../components/DocCard';
+import { useStage } from '../../components/mac';
 import { Button, Card, Chip, EmptyState, H1, Muted, Row, Screen, Skeleton } from '../../components/ui';
 import { useI18n } from '../../lib/i18n';
 import { allDocs, Category, CATEGORY_LABELS } from '../../lib/library';
 import { appStore } from '../../lib/store';
 import { LANGS, Lang } from '../../i18n/strings';
-import { colors } from '../../theme';
+import { useTheme } from '../../components/theme';
 
 export default function Library() {
   const { t, lang, dir } = useI18n();
+  const theme = useTheme();
   const s = appStore.useStore();
   const [cat, setCat] = useState<Category | 'all' | 'mine'>('all');
   const [docLang, setDocLang] = useState<Lang | 'all'>('all');
@@ -21,6 +23,7 @@ export default function Library() {
     return () => clearTimeout(id);
   }, []);
   const docs = useMemo(() => allDocs(s.userDocs), [s.userDocs]);
+  const { wide } = useStage();
   const cats = useMemo(() => Array.from(new Set(docs.map((d) => d.category))), [docs]);
   const filtered = docs.filter(
     (d) => (cat === 'all' || (cat === 'mine' ? d.userAdded : d.category === cat)) && (docLang === 'all' || d.lang === docLang),
@@ -30,7 +33,7 @@ export default function Library() {
     <Screen dir={dir}>
       <Row style={{ justifyContent: 'space-between' }}>
         <H1>{t('tabLibrary')}</H1>
-        <Button small label={t('add')} icon={<Ionicons name="add" size={16} color="#fff" />} onPress={() => router.push('/add')} />
+        <Button small label={t('add')} icon={<Ionicons name="add" size={16} color={theme.palette.onPrimary} />} onPress={() => router.push('/add')} />
       </Row>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
         <Chip label={t('allDocs')} active={cat === 'all'} onPress={() => setCat('all')} />
@@ -46,7 +49,7 @@ export default function Library() {
         ))}
       </ScrollView>
       <Muted>
-        <Ionicons name="cloud-done-outline" size={13} color={colors.muted} /> {t('offlineReady')} · {t('results', { n: filtered.length })}
+        <Ionicons name="cloud-done-outline" size={13} color={theme.palette.muted} /> {t('offlineReady')} · {t('results', { n: filtered.length })}
       </Muted>
       {!ready ? (
         [0, 1, 2].map((i) => (
@@ -58,15 +61,19 @@ export default function Library() {
         ))
       ) : filtered.length === 0 ? (
         <EmptyState
-          icon={<Ionicons name="library-outline" size={40} color={colors.muted} />}
+          icon={<Ionicons name="library-outline" size={40} color={theme.palette.muted} />}
           title={t('emptyLibrary')}
           text={t('emptyLibraryText')}
           action={<Button label={t('add')} onPress={() => router.push('/add')} />}
         />
       ) : (
-        filtered.map((d) => (
-          <DocCard key={d.id} doc={d} progress={s.progress[d.id]} onPress={() => router.push({ pathname: '/doc/[id]', params: { id: d.id } })} />
-        ))
+        <View style={wide ? { flexDirection: 'row', flexWrap: 'wrap', gap: 12, width: '100%' } : { width: '100%', gap: 12 }}>
+          {filtered.map((d) => (
+            <View key={d.id} style={wide ? { width: '47%' } : { width: '100%' }}>
+              <DocCard doc={d} progress={s.progress[d.id]} onPress={() => router.push({ pathname: '/doc/[id]', params: { id: d.id } })} />
+            </View>
+          ))}
+        </View>
       )}
     </Screen>
   );

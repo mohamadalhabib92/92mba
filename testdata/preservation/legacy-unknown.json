@@ -1,0 +1,31 @@
+{
+  "lang": "ar",
+  "fontScale": 1.4,
+  "lineHeight": 1.7,
+  "readerMargin": "wide",
+  "dyslexia": true,
+  "readerTheme": "sepia",
+  "progress": {
+    "taylor-scientific-management": { "page": 120, "pages": 300, "updatedAt": 4, "anchor": "p-120" }
+  },
+  "bookmarks": { "taylor-scientific-management": [2, 5] },
+  "searchHistory": ["bilan", "swot"],
+  "userDocs": [
+    {
+      "id": "user-notes",
+      "title": "Notes de cours",
+      "author": "Moi",
+      "lang": "fr",
+      "category": "other",
+      "license": { "kind": "owned", "label": "Je possède", "statusCode": "owned" },
+      "summary": "notes",
+      "note": "fichier importé",
+      "paragraphs": ["Paragraphe un."],
+      "userAdded": true,
+      "addedAt": "2026-01-15T10:00:00.000Z",
+      "fileName": "notes.txt"
+    }
+  ],
+  "accountId": "local-account-kept",
+  "importBatch": { "id": "batch-1", "count": 1 }
+}

@@ -1,5 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
+import {
+  composeSave,
+  classifyStored,
+  describeRaw,
+  EMPTY_PRESERVE_REPORT,
+  exceedsProductEntryGuard,
+  quarantineStorageKey,
+  type PreserveReport,
+} from './preservation';
+import type { AppState } from './stateMerge';
+import { utf8ByteLength } from './sha256';
 
 /** Au-delà, l'écran de repli propose Réessayer et Continuer hors ligne. Jamais un Loading infini. */
 export const BOOT_TIMEOUT_MS = 8000;
@@ -10,13 +21,15 @@ export type KeyValueStorage = {
   removeItem(key: string): Promise<void>;
 };
 
-export type StorageWarning = 'unreadable' | 'copy-failed' | 'delete-failed' | null;
+export type StorageWarning = 'unreadable' | 'copy-failed' | 'delete-failed' | 'version-quarantine' | 'write-failed' | null;
 export type ResetResult = 'idle' | 'pending' | 'wiped' | 'refused' | 'delete-failed';
 
 /** Copie brute, jamais la clé d'origine. `92mba:v1` reste la clé de l'app. */
 export function unreadableStorageKey(key: string): string {
   return `${key}:unreadable`;
 }
+
+export { quarantineStorageKey };
 
 export type PersistOptions<T> = {
   merge?: (stored: Partial<T>) => T;
@@ -51,7 +64,13 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
   let preservedRaw: string | null = null;
   let resetResult: ResetResult = 'idle';
   let loadGen = 0;
+  let rawObject: Record<string, unknown> | null = null;
+  let loadedRaw: string | null = null;
+  let report: PreserveReport = EMPTY_PRESERVE_REPORT;
+  let writing = false;
+  let writeAgain = false;
   const touched = new Set<string>();
+  const pendingChanges = new Set<string>();
   const listeners = new Set<() => void>();
   const emit = () => listeners.forEach((listener) => listener());
   const stamp = () => (options.now ?? (() => new Date().toISOString()))();
@@ -68,9 +87,8 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
   };
 
   /** Écrit la copie, la relit, et ne la considère vraie que si elle est identique à l'original. */
-  const preserveUnreadable = async (gen: number, raw: string): Promise<boolean> => {
+  const preserveCopy = async (gen: number, raw: string, base: string, kind: 'unreadable' | 'version-quarantine'): Promise<boolean> => {
     try {
-      const base = unreadableStorageKey(key);
       let dest = base;
       const existing = await storage.getItem(base);
       if (existing !== null && existing !== raw) {
@@ -90,7 +108,7 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
       if (gen !== loadGen) return false;
       preservedKey = dest;
       preservedRaw = raw;
-      warning = 'unreadable';
+      warning = kind;
       copyVerified = true;
       hydrated = true;
       emit();
@@ -101,6 +119,8 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
       return false;
     }
   };
+
+  const preserveUnreadable = (gen: number, raw: string) => preserveCopy(gen, raw, unreadableStorageKey(key), 'unreadable');
 
   const wipeOriginal = async () => {
     pendingWipe = true;
@@ -131,6 +151,10 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
     state = initial;
     dirty = false;
     touched.clear();
+    pendingChanges.clear();
+    rawObject = null;
+    loadedRaw = null;
+    report = EMPTY_PRESERVE_REPORT;
     storageReady = true;
     warning = null;
     resetResult = 'wiped';
@@ -165,6 +189,22 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
         unreadable = true;
       }
       if (!unreadable && (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))) unreadable = true;
+      if (!unreadable && parsed) {
+        const decision = classifyStored(parsed);
+        if (decision.action === 'unreadable') unreadable = true;
+        else if (decision.action === 'quarantine') {
+          if (gen !== loadGen) return;
+          loadedRaw = raw;
+          report = describeRaw(raw);
+          const verified = await preserveCopy(gen, raw, quarantineStorageKey(key), 'version-quarantine');
+          if (gen !== loadGen) return;
+          if (pendingWipe || resetResult === 'pending') {
+            if (verified) await wipeOriginal();
+            else if (resetResult !== 'refused') markCopyFailed();
+          }
+          return;
+        }
+      }
       if (unreadable) {
         if (gen !== loadGen) return;
         const verified = await preserveUnreadable(gen, raw);
@@ -180,12 +220,16 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
         return;
       }
       applyParsed(parsed as Partial<T>);
+      rawObject = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+      loadedRaw = raw;
+      report = describeRaw(raw);
       warning = null;
       copyVerified = false;
     } else if (pendingWipe) {
       await wipeOriginal();
       return;
     }
+    if (!loadedRaw) report = EMPTY_PRESERVE_REPORT;
     storageReady = true;
     hydrated = true;
     emit();
@@ -201,12 +245,52 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
   start();
 
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
+  const writeNow = async () => {
+    if (writing) {
+      writeAgain = true;
+      return;
+    }
+    writing = true;
+    try {
+      while (storageReady && !pendingWipe) {
+        writeAgain = false;
+        const changesAtWrite = new Set(pendingChanges);
+        const stateAtWrite = state;
+        const payload = JSON.stringify(composeSave(rawObject, state as AppState, changesAtWrite));
+        if (exceedsProductEntryGuard(utf8ByteLength(payload))) {
+          warning = 'write-failed';
+          emit();
+          return;
+        }
+        try {
+          await storage.setItem(key, payload);
+        } catch {
+          warning = 'write-failed';
+          emit();
+          return;
+        }
+        if (!storageReady || pendingWipe) return;
+        rawObject = JSON.parse(payload) as Record<string, unknown>;
+        for (const field of changesAtWrite) {
+          if (Object.is(state[field as keyof T], stateAtWrite[field as keyof T])) pendingChanges.delete(field);
+        }
+        if (writeAgain || pendingChanges.size > 0) continue;
+        touched.clear();
+        loadedRaw = payload;
+        report = describeRaw(payload);
+        if (warning === 'write-failed') warning = null;
+        emit();
+        return;
+      }
+    } finally {
+      writing = false;
+    }
+  };
   const persist = () => {
     if (!storageReady || pendingWipe) return;
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      if (!storageReady || pendingWipe) return;
-      storage.setItem(key, JSON.stringify(state)).catch(() => undefined);
+      void writeNow();
     }, saveDelayMs);
   };
 
@@ -227,18 +311,22 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
           if (!Object.is(state[field as keyof T], next[field as keyof T])) touched.add(field);
         }
       }
+      for (const field of keys) {
+        if (!Object.is(state[field as keyof T], next[field as keyof T])) pendingChanges.add(field);
+      }
       state = { ...state, ...next };
       emit();
       persist();
     },
     reset(): ResetResult {
-      if (warning === 'copy-failed' || (warning === 'unreadable' && !copyVerified)) {
+      const heldAside = warning === 'unreadable' || warning === 'version-quarantine';
+      if (warning === 'copy-failed' || (heldAside && !copyVerified)) {
         markCopyFailed();
         resetResult = 'refused';
         emit();
         return 'refused';
       }
-      if (copyVerified && (warning === 'unreadable' || warning === 'delete-failed')) {
+      if (copyVerified && (heldAside || warning === 'delete-failed')) {
         resetResult = 'pending';
         emit();
         void wipeOriginal();
@@ -264,6 +352,25 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
       hydrated = true;
       emit();
     },
+    /** Aucun compte dans cette version. Ne lit pas, n'écrit pas, n'efface pas. */
+    logout(): 'no-account' {
+      return 'no-account';
+    },
+    retrySave() {
+      if (warning !== 'write-failed' || !storageReady || pendingWipe) return;
+      if (saveTimer) clearTimeout(saveTimer);
+      void writeNow();
+    },
+    /** Chaîne brute telle qu'elle est stockée. L'interface ne doit pas l'afficher. */
+    async exportRaw(): Promise<string | null> {
+      try {
+        const value = await storage.getItem(key);
+        return typeof value === 'string' ? value : null;
+      } catch {
+        return null;
+      }
+    },
+    getPreserveReport: () => report,
     isStorageReady: () => storageReady,
     isCopyVerified: () => copyVerified,
     getWarning: () => warning,
@@ -279,6 +386,9 @@ export function createPersistedStore<T extends object>(key: string, initial: T, 
     },
     useResetResult(): ResetResult {
       return useSyncExternalStore(subscribe, () => resetResult, () => 'idle');
+    },
+    usePreserveReport(): PreserveReport {
+      return useSyncExternalStore(subscribe, () => report, () => EMPTY_PRESERVE_REPORT);
     },
     useStore(): T {
       return useSyncExternalStore(subscribe, () => state, () => state);
