@@ -16,6 +16,12 @@ Fichiers : `src/learn/content/lss/`, `src/app/lss/`, `src/app/tv/lss.tsx`, `src/
 
 Les leçons et l’examen blanc s’écrivent dans `study.lessons` et `study.exams` (`lss-white:mock`), champs déjà prévus. Le parcours des 92 jours ne change pas.
 
+## 2026-11-26 — ceinture jaune
+
+Avant : la piste s’arrêtait à la blanche.
+
+Après : `lss-yellow` s’ouvre seulement quand les leçons blanches sont finies et que l’examen blanc de la ceinture blanche est tenu à 70 %. Six leçons (5S, Gemba, kaizen, SIPOC, charte, carte, takt, kanban, SMED, poka-yoke), 36 questions, examen blanc de 18 questions en 30 minutes. Même phrase d’attestation : pas une certification accréditée.
+
 ## 2026-11-23 — du surlignage à la révision
 
 Écart visé : un passage gardé devient une carte, puis entre dans une séance courte, comme dans Readwise. La répétition espacée et la clé `92mba:v1` existaient déjà.

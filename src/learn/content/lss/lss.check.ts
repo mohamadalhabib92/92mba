@@ -164,6 +164,7 @@ function compute(formula: string, inputs: number[]): number {
 
 const RULES: Record<string, { minQ: number; maxQ: number; mock: number; minutes: number; kinds: Array<LssQuestion['kind']> }> = {
   'lss-white': { minQ: 30, maxQ: 45, mock: 15, minutes: 20, kinds: ['mcq', 'tf', 'calc'] },
+  'lss-yellow': { minQ: 30, maxQ: 45, mock: 18, minutes: 30, kinds: ['mcq', 'tf', 'calc'] },
 };
 
 function filled(value: { fr: string; en: string; ar: string } | undefined): boolean {
@@ -242,6 +243,7 @@ assert(orders.join() === lssBelts.map((_, index) => index + 1).join(), `ordre ${
 
 const fresh = defaultStudyState();
 assert(lessonAllowed('lss-white', fresh), 'blanche ouverte');
+assert(!lessonAllowed('lss-yellow', fresh), 'jaune fermée');
 assert(lessonAllowed('strategy', fresh), 'module MBA intact');
 
 const gates: BeltGate[] = [
