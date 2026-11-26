@@ -166,6 +166,7 @@ const RULES: Record<string, { minQ: number; maxQ: number; mock: number; minutes:
   'lss-white': { minQ: 30, maxQ: 45, mock: 15, minutes: 20, kinds: ['mcq', 'tf', 'calc'] },
   'lss-yellow': { minQ: 30, maxQ: 45, mock: 18, minutes: 30, kinds: ['mcq', 'tf', 'calc'] },
   'lss-green': { minQ: 60, maxQ: 80, mock: 30, minutes: 60, kinds: ['mcq', 'tf', 'calc'] },
+  'lss-black': { minQ: 80, maxQ: 100, mock: 40, minutes: 90, kinds: ['mcq', 'tf', 'calc'] },
 };
 
 function filled(value: { fr: string; en: string; ar: string } | undefined): boolean {
@@ -246,6 +247,7 @@ const fresh = defaultStudyState();
 assert(lessonAllowed('lss-white', fresh), 'blanche ouverte');
 assert(!lessonAllowed('lss-yellow', fresh), 'jaune fermée');
 assert(!lessonAllowed('lss-green', fresh), 'verte fermée');
+assert(!lessonAllowed('lss-black', fresh), 'noire fermée');
 assert(lessonAllowed('strategy', fresh), 'module MBA intact');
 
 const gates: BeltGate[] = [

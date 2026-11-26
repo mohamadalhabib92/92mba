@@ -10,7 +10,7 @@ Petites améliorations sur `release/next`. Rien n'est mergé dans `main`. Les le
 
 Avant : pas de piste Lean Six Sigma.
 
-Après : module `lss-white`, six leçons (DMAIC, TIMWOODS, voix du client, CTQ, DPMO, rôles), 36 questions originales (QCM, vrai/faux, calculs), examen blanc de 15 questions en 20 minutes avec revue des erreurs. L’écran de fin dit que c’est une attestation dans l’application, pas une certification accréditée. Les ceintures suivantes ne sont pas encore dans cette entrée.
+Après : module `lss-white`, six leçons (DMAIC, TIMWOODS, voix du client, CTQ, DPMO, rôles), 36 questions originales (QCM, vrai/faux, calculs), examen blanc de 15 questions en 20 minutes avec revue des erreurs. L’écran de fin dit que c’est une attestation dans l’application, pas une certification accréditée. Les trois ceintures suivantes sont dans les entrées du même jour.
 
 Fichiers : `src/learn/content/lss/`, `src/app/lss/`, `src/app/tv/lss.tsx`, `src/app/tv/lss-mock/[id].tsx`.
 
@@ -27,6 +27,12 @@ Après : `lss-yellow` s’ouvre seulement quand les leçons blanches sont finies
 Avant : la piste s’arrêtait au jaune.
 
 Après : `lss-green` s’ouvre quand le jaune est tenu. Huit leçons (gage R&R, forme des données, Cp/Cpk/Pp/Ppk, causes, tests t / ANOVA / khi-deux, corrélation, cartes, plan de contrôle), 64 questions, examen blanc de 30 questions en 60 minutes. Les calculs sont recomptés par le test, à part du texte des options.
+
+## 2026-11-26 — ceinture noire
+
+Avant : la piste s’arrêtait au vert.
+
+Après : `lss-black` s’ouvre quand le vert est tenu. Huit leçons (plans complets et fractionnaires, droite et résidus, DMADV / DFSS, déploiement, coaching, cartes et tampering, rôle). 87 questions, examen blanc de 40 questions en 90 minutes. L’écran de fin répète que c’est une attestation dans l’application, pas une certification accréditée.
 
 ## 2026-11-23 — du surlignage à la révision
 
