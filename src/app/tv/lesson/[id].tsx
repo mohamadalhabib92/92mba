@@ -3,7 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { TvBody, TvFocusable, TvHint, TvScreen, TvTitle } from '../../../components/tv/ui';
 import { finishLesson, moveLesson } from '../../../learn/actions';
-import { modules } from '../../../learn/content/catalog';
+import { findLesson, lessonAllowed } from '../../../learn/content/resolve';
 import { learnText } from '../../../learn/copy';
 import { pick } from '../../../learn/l10n';
 import { useI18n } from '../../../lib/i18n';
@@ -12,20 +12,16 @@ import { appStore } from '../../../lib/store';
 export default function TvLesson() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { lang } = useI18n();
-  const saved = appStore.useStore().study.lessons[String(id)]?.screen ?? 0;
-  const found = useMemo(() => {
-    for (const mod of modules) {
-      const lesson = mod.lessons.find((item) => item.id === id);
-      if (lesson) return { mod, lesson };
-    }
-    return null;
-  }, [id]);
+  const study = appStore.useStore().study;
+  const saved = study.lessons[String(id)]?.screen ?? 0;
+  const found = useMemo(() => findLesson(String(id)), [id]);
   const [index, setIndex] = useState(saved);
   const [picked, setPicked] = useState<number | null>(null);
   const t = (key: Parameters<typeof learnText>[1]) => learnText(lang, key);
-  if (!found) {
+  if (!found || !lessonAllowed(found.mod.id, study)) {
     return (
       <TvScreen>
+        <TvBody>{found ? t('lssLocked') : ''}</TvBody>
         <TvFocusable preferred label={t('leave')} onPress={() => router.back()} />
       </TvScreen>
     );

@@ -48,6 +48,9 @@ export default function TvHome() {
             <TvFocusable label={t('pathCta')} hint={PATH_92.days ? `${PATH_92.days}` : undefined} onPress={() => router.push({ pathname: '/tv/lesson/[id]', params: { id: firstLesson } })} />
           </View>
         ) : null}
+        <View style={{ width: '31%', minWidth: 360 }}>
+          <TvFocusable label={t('lssTitle')} hint={t('lssKicker')} onPress={() => router.push('/tv/lss')} />
+        </View>
       </View>
       <TvBody>{t('browseModules')}</TvBody>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 22 }}>

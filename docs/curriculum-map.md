@@ -53,6 +53,10 @@ Chaque leçon, carte, question, cas, formule et entrée de glossaire porte auteu
 
 Les 11 documents de la bibliothèque ne sont pas remplacés. Le placeholder « Vos supports de cours » reste en place.
 
+## Lean Six Sigma, à côté des quinze modules
+
+Le parcours des 92 jours reste les quinze modules ci-dessus. Une piste séparée ajoute quatre ceintures, dans l’ordre : blanche, jaune, verte, noire. La suivante s’ouvre quand les leçons de la précédente sont finies et que l’examen blanc chronométré est tenu à 70 %. Le texte est original. Les pages publiques ASQ (CSSYB, CSSGB, CSSBB) ne servent que de repère de thèmes : aucun item d’examen n’est recopié. L’écran de fin de chaque ceinture dit que c’est une attestation dans l’application, pas une certification accréditée.
+
 ## À vérifier
 
 - Licences OpenStax quand le PDF et la page web ne disent pas la même chose.

@@ -40,7 +40,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "tsx src/lib/passe1.check.ts && tsx src/lib/preservation.check.ts && tsx src/learn/srs.check.ts && tsx src/learn/study.check.ts && tsx src/learn/highlights.check.ts && tsx src/theme/glass.check.ts && tsx src/lib/stage.check.ts && node scripts/passe1-scan.mjs && node scripts/tv.check.mjs && node scripts/mac.check.mjs",
+    "test": "tsx src/lib/passe1.check.ts && tsx src/lib/preservation.check.ts && tsx src/learn/srs.check.ts && tsx src/learn/study.check.ts && tsx src/learn/highlights.check.ts && tsx src/theme/glass.check.ts && tsx src/lib/stage.check.ts && tsx src/learn/content/lss/lss.check.ts && node scripts/passe1-scan.mjs && node scripts/tv.check.mjs && node scripts/mac.check.mjs",
     "export:web": "expo export -p web && node scripts/pwa.mjs",
     "icons": "python3 scripts/make-icons.py"
   },

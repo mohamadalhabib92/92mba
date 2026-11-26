@@ -65,6 +65,7 @@ export default function Home() {
         <Button variant="ghost" label={tLearn('highlights')} onPress={() => router.push('/highlights')} />
         {openLesson ? <Button variant="secondary" label={tLearn('continueLesson')} onPress={() => router.push({ pathname: '/lesson/[id]', params: { id: openLesson } })} /> : null}
         <Button variant="ghost" label={tLearn('browseModules')} onPress={() => router.push('/curriculum')} />
+        <Button variant="ghost" label={tLearn('lssTitle')} onPress={() => router.push('/lss')} />
         <Button variant="ghost" label={tLearn('pathCta')} onPress={() => router.push('/path')} />
         {!s.study.onboarded ? <Button variant="ghost" label={tLearn('onboardCta')} onPress={() => router.push('/onboarding')} /> : null}
       </Card>

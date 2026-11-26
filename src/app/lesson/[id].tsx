@@ -7,7 +7,7 @@ import { haptic } from '../../components/haptics';
 import { Body, Button, Card, H2, Screen } from '../../components/ui';
 import { useTheme } from '../../components/theme';
 import { finishLesson, moveLesson } from '../../learn/actions';
-import { modules } from '../../learn/content/catalog';
+import { findLesson, lessonAllowed } from '../../learn/content/resolve';
 import { learnText } from '../../learn/copy';
 import { pick } from '../../learn/l10n';
 import { useI18n } from '../../lib/i18n';
@@ -17,22 +17,18 @@ export default function LessonScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { lang, dir } = useI18n();
   const theme = useTheme();
-  const saved = appStore.useStore().study.lessons[String(id)]?.screen ?? 0;
-  const found = useMemo(() => {
-    for (const mod of modules) {
-      const lesson = mod.lessons.find((item) => item.id === id);
-      if (lesson) return { mod, lesson };
-    }
-    return null;
-  }, [id]);
+  const study = appStore.useStore().study;
+  const saved = study.lessons[String(id)]?.screen ?? 0;
+  const found = useMemo(() => findLesson(String(id)), [id]);
   const [index, setIndex] = useState(saved);
   const [picked, setPicked] = useState<number | null>(null);
   const [spoken, setSpoken] = useState(false);
   const t = (key: Parameters<typeof learnText>[1]) => learnText(lang, key);
-  if (!found) {
+  if (!found || !lessonAllowed(found.mod.id, study)) {
     return (
       <Screen dir={dir}>
         <BackButton />
+        {found ? <Body>{t('lssLocked')}</Body> : null}
       </Screen>
     );
   }
