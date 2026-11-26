@@ -2,6 +2,20 @@
 
 Petites améliorations sur `release/next`. Rien n'est mergé dans `main`. Les lectures, signets, cartes et passages déjà enregistrés restent. Aucun lien partagé n'est republié.
 
+## 2026-11-26 — Lean Six Sigma, ceinture blanche
+
+Écart visé : un parcours Lean Six Sigma à part des 15 modules du MBA, de la ceinture blanche à la noire, sans toucher à la clé `92mba:v1`.
+
+### Ceinture blanche
+
+Avant : pas de piste Lean Six Sigma.
+
+Après : module `lss-white`, six leçons (DMAIC, TIMWOODS, voix du client, CTQ, DPMO, rôles), 36 questions originales (QCM, vrai/faux, calculs), examen blanc de 15 questions en 20 minutes avec revue des erreurs. L’écran de fin dit que c’est une attestation dans l’application, pas une certification accréditée. Les ceintures suivantes ne sont pas encore dans cette entrée.
+
+Fichiers : `src/learn/content/lss/`, `src/app/lss/`, `src/app/tv/lss.tsx`, `src/app/tv/lss-mock/[id].tsx`.
+
+Les leçons et l’examen blanc s’écrivent dans `study.lessons` et `study.exams` (`lss-white:mock`), champs déjà prévus. Le parcours des 92 jours ne change pas.
+
 ## 2026-11-23 — du surlignage à la révision
 
 Écart visé : un passage gardé devient une carte, puis entre dans une séance courte, comme dans Readwise. La répétition espacée et la clé `92mba:v1` existaient déjà.

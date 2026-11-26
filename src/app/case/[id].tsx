@@ -4,7 +4,7 @@ import { BackButton, Choice, PageTitle, ProvenanceLine } from '../../components/
 import { haptic } from '../../components/haptics';
 import { Body, Card, H2, Screen } from '../../components/ui';
 import { useTheme } from '../../components/theme';
-import { modules } from '../../learn/content/catalog';
+import { findCase, lessonAllowed } from '../../learn/content/resolve';
 import { learnText } from '../../learn/copy';
 import { pick } from '../../learn/l10n';
 import { touchStreak } from '../../learn/study';
@@ -15,10 +15,19 @@ export default function CaseScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { lang, dir } = useI18n();
   const theme = useTheme();
-  const item = modules.flatMap((mod) => mod.cases).find((entry) => entry.id === id);
+  const study = appStore.useStore().study;
+  const item = findCase(String(id));
   const [picked, setPicked] = useState<number | null>(null);
   const t = (key: Parameters<typeof learnText>[1]) => learnText(lang, key);
   if (!item) return <Screen dir={dir}><BackButton /></Screen>;
+  if (!lessonAllowed(item.moduleId, study)) {
+    return (
+      <Screen dir={dir}>
+        <BackButton />
+        <Body>{t('lssLocked')}</Body>
+      </Screen>
+    );
+  }
   return (
     <Screen dir={dir}>
       <BackButton />

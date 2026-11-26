@@ -3,6 +3,7 @@ import { BackButton, PageTitle, ProvenanceLine } from '../components/learnChrome
 import { Body, Card, H3, Screen } from '../components/ui';
 import { TextInput } from 'react-native';
 import { glossary } from '../learn/content/catalog';
+import { lssGlossary } from '../learn/content/lss';
 import { learnText } from '../learn/copy';
 import { pick } from '../learn/l10n';
 import { useI18n } from '../lib/i18n';
@@ -15,8 +16,9 @@ export default function GlossaryScreen() {
   const t = (key: Parameters<typeof learnText>[1]) => learnText(lang, key);
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return glossary;
-    return glossary.filter((entry) => `${entry.term.fr} ${entry.term.en} ${entry.term.ar} ${entry.definition.fr}`.toLowerCase().includes(q));
+    const all = [...glossary, ...lssGlossary];
+    if (!q) return all;
+    return all.filter((entry) => `${entry.term.fr} ${entry.term.en} ${entry.term.ar} ${entry.definition.fr}`.toLowerCase().includes(q));
   }, [query]);
   return (
     <Screen dir={dir}>

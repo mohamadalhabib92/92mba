@@ -1,9 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Linking } from 'react-native';
 import { BackButton, PageTitle, ProvenanceLine } from '../../components/learnChrome';
 import { Badge, Body, Button, Card, H3, Muted, Screen } from '../../components/ui';
 import { modules } from '../../learn/content/catalog';
+import { findBelt } from '../../learn/content/lss';
 import { learnText } from '../../learn/copy';
 import { pick } from '../../learn/l10n';
 import { nextLessonId } from '../../learn/study';
@@ -15,13 +16,17 @@ export default function ModuleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { lang, dir } = useI18n();
   const state = appStore.useStore();
+  const belt = findBelt(String(id));
+  useEffect(() => {
+    if (belt) router.replace({ pathname: '/lss/[id]', params: { id: belt.id } });
+  }, [belt]);
   const mod = useMemo(() => modules.find((item) => item.id === id), [id]);
   const t = (key: Parameters<typeof learnText>[1], vars?: Record<string, string | number>) => learnText(lang, key, vars);
-  if (!mod) {
+  if (belt || !mod) {
     return (
       <Screen dir={dir}>
         <BackButton />
-        <Body>{t('dueNone')}</Body>
+        {belt ? null : <Body>{t('dueNone')}</Body>}
       </Screen>
     );
   }

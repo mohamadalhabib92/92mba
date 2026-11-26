@@ -4,6 +4,7 @@ import { useWindowDimensions, View } from 'react-native';
 import { PageTitle } from '../components/learnChrome';
 import { Badge, Body, Card, H3, Muted, ProgressBar, Screen } from '../components/ui';
 import { modules } from '../learn/content/catalog';
+import { LSS_TRACK } from '../learn/content/lss';
 import { learnText } from '../learn/copy';
 import { pick } from '../learn/l10n';
 import { moduleRatio } from '../learn/study';
@@ -20,6 +21,11 @@ export default function Curriculum() {
   return (
     <Screen dir={dir}>
       <PageTitle kicker="92'MBA" title={t('browseModules')} text={t('studyLead')} />
+      <Card accessibilityLabel={pick(LSS_TRACK.title, lang)} onPress={() => router.push('/lss')}>
+        <Badge label={t('lssKicker')} tone="info" />
+        <H3>{pick(LSS_TRACK.title, lang)}</H3>
+        <Body>{pick(LSS_TRACK.summary, lang)}</Body>
+      </Card>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
         {cards.map((mod) => {
           const ratio = moduleRatio(mod, study);
