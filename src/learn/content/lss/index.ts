@@ -2,6 +2,7 @@ import { L } from '../../l10n';
 import type { LssBelt } from './types';
 import { whiteBelt } from './white';
 import { yellowBelt } from './yellow';
+import { greenBelt } from './green';
 
 export const LSS_TRACK = {
   id: 'lean-six-sigma',
@@ -17,7 +18,7 @@ export const LSS_TRACK = {
   ),
 };
 
-const registered: LssBelt[] = [whiteBelt, yellowBelt];
+const registered: LssBelt[] = [whiteBelt, yellowBelt, greenBelt];
 
 export const lssBelts: LssBelt[] = [...registered].sort((a, b) => a.order - b.order);
 

@@ -22,6 +22,12 @@ Avant : la piste s’arrêtait à la blanche.
 
 Après : `lss-yellow` s’ouvre seulement quand les leçons blanches sont finies et que l’examen blanc de la ceinture blanche est tenu à 70 %. Six leçons (5S, Gemba, kaizen, SIPOC, charte, carte, takt, kanban, SMED, poka-yoke), 36 questions, examen blanc de 18 questions en 30 minutes. Même phrase d’attestation : pas une certification accréditée.
 
+## 2026-11-26 — ceinture verte
+
+Avant : la piste s’arrêtait au jaune.
+
+Après : `lss-green` s’ouvre quand le jaune est tenu. Huit leçons (gage R&R, forme des données, Cp/Cpk/Pp/Ppk, causes, tests t / ANOVA / khi-deux, corrélation, cartes, plan de contrôle), 64 questions, examen blanc de 30 questions en 60 minutes. Les calculs sont recomptés par le test, à part du texte des options.
+
 ## 2026-11-23 — du surlignage à la révision
 
 Écart visé : un passage gardé devient une carte, puis entre dans une séance courte, comme dans Readwise. La répétition espacée et la clé `92mba:v1` existaient déjà.
